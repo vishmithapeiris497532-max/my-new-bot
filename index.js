@@ -7,7 +7,7 @@ const ytdl = require('@distube/ytdl-core');
 // Helper to extract YouTube URL from text
 function extractYoutubeUrl(text) {
     if (!text) return null;
-    const match = text.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]+|https?:\/\/youtu\.be\/[a-zA-Z0-9_-]+/);
+    const match = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?youtu(?:be\.com|\.be)\/[^\s]+/);
     return match ? match[0] : null;
 }
 
@@ -401,12 +401,7 @@ async function startBot() {
             }
             // MP3 DOWNLOADER
             else if (cmd.startsWith('.mp3') || cmd.startsWith('mp3')) {
-                let url = '';
-                // 1. Check if URL is passed in the command itself
-                const args = text.trim().split(/\s+/);
-                if (args.length > 1) {
-                    url = args[1];
-                }
+                let url = extractYoutubeUrl(text);
                 
                 // 2. If no URL in command, check if message is a reply
                 if (!url && msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
@@ -474,12 +469,7 @@ async function startBot() {
             }
             // MP4 DOWNLOADER
             else if (cmd.startsWith('.mp4') || cmd.startsWith('mp4')) {
-                let url = '';
-                // 1. Check if URL is passed in the command itself
-                const args = text.trim().split(/\s+/);
-                if (args.length > 1) {
-                    url = args[1];
-                }
+                let url = extractYoutubeUrl(text);
                 
                 // 2. If no URL in command, check if message is a reply
                 if (!url && msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
