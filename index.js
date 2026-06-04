@@ -34,6 +34,9 @@ const chatHistories = {};
 // Setting to toggle Auto AI replies in private messages (on by default)
 let autoAIActive = true;
 
+// Store the bot start time to ignore offline messages
+const botStartTime = Math.floor(Date.now() / 1000);
+
 /**
  * Gets the chat history for a specific sender JID.
  * Formats it properly for Gemini chat API.
@@ -145,6 +148,12 @@ async function startBot() {
             const msg = messages[0];
 
             if (!msg.message || msg.key.fromMe) return;
+
+            // Ignore messages sent when the bot was offline (before bot start time)
+            const messageTimestamp = msg.messageTimestamp?.low || msg.messageTimestamp || 0;
+            if (messageTimestamp && messageTimestamp < botStartTime) {
+                return;
+            }
            
             const from = msg.key.remoteJid;
             const isGroup = from.endsWith('@g.us');
