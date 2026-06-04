@@ -1,15 +1,21 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY_HERE");
-const model = genAI.getGenerativeModel({
-    model: "gemini-flash-latest",
-    systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot created by Vishmitha. 
+// Split keys by comma to support multi-key rotation
+const apiKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
+let currentKeyIndex = 0;
+
+function getModelInstance() {
+    const key = apiKeys[currentKeyIndex] || "YOUR_GEMINI_API_KEY_HERE";
+    const genAI = new GoogleGenerativeAI(key);
+    return genAI.getGenerativeModel({
+        model: "gemini-flash-latest",
+        systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot created by Vishmitha. 
 Your goal is to reply natural and conversational responses.
 Since your audience is from Sri Lanka, reply in Sinhala or a friendly mix of Sinhala and English (Singlish) where appropriate. 
 Keep your responses neat, well-structured, relatively short (suitable for quick WhatsApp reading), and use emojis nicely.`
-});
+    });
+}
 
 const {
     default: makeWASocket,
@@ -403,15 +409,38 @@ async function startBot() {
                 try {
                     // Fetch message history for context-aware responses
                     const history = getChatHistory(from);
+                    let response = "";
+                    let attempts = 0;
+                    const maxAttempts = Math.max(1, apiKeys.length);
 
-                    // Start a chat session
-                    const chatSession = model.startChat({
-                        history: history
-                    });
+                    while (attempts < maxAttempts) {
+                        try {
+                            const model = getModelInstance();
+                            const chatSession = model.startChat({
+                                history: history
+                            });
 
-                    // Call the API
-                    const result = await chatSession.sendMessage(prompt);
-                    const response = result.response.text();
+                            // Call the API
+                            const result = await chatSession.sendMessage(prompt);
+                            response = result.response.text();
+                            break; // Success! Exit loop.
+                        } catch (err) {
+                            console.log(`Gemini API Error with key index ${currentKeyIndex}:`, err.message);
+                            
+                            // Rotate to next key if it's a rate limit or quota error
+                            if (apiKeys.length > 1 && (err.status === 429 || err.message.includes("quota") || err.message.includes("429") || err.message.includes("limit"))) {
+                                currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+                                console.log(`🔄 Quota exceeded. Rotating to API Key index ${currentKeyIndex}...`);
+                                attempts++;
+                            } else {
+                                throw err; // Re-throw other errors (e.g. 401, 404, etc.)
+                            }
+                        }
+                    }
+
+                    if (!response) {
+                        throw new Error("All API keys are currently busy or exceeded quota.");
+                    }
 
                     // Update history context
                     addToHistory(from, "user", prompt);
@@ -426,7 +455,7 @@ async function startBot() {
                     );
 
                 } catch (err) {
-                    console.log("Gemini AI Error: ", err);
+                    console.log("Gemini AI Final Error: ", err);
 
                     await sock.sendMessage(
                         from,
