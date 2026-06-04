@@ -219,8 +219,9 @@ async function startBot() {
                                           '') : '';
 
             if (isReply && quotedText.includes('Choose Video Quality') && pendingVideoDownloads[from]) {
-                const choice = cmd.trim();
-                if (choice === '1' || choice === '2' || choice === '3') {
+                const match = cmd.match(/[123]/);
+                if (match) {
+                    const choice = match[0];
                     const pending = pendingVideoDownloads[from];
                     delete pendingVideoDownloads[from]; // Clear pending item
                     
