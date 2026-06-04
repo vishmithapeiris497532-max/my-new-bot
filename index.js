@@ -4,7 +4,7 @@ require('dotenv').config();
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY_HERE");
 const model = genAI.getGenerativeModel({
-    model: "gemini-3.5-flash",
+    model: "gemini-flash-latest",
     systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot created by Vishmitha. 
 Your goal is to reply natural and conversational responses.
 Since your audience is from Sri Lanka, reply in Sinhala or a friendly mix of Sinhala and English (Singlish) where appropriate. 
