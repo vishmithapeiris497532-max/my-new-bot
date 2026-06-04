@@ -1,5 +1,15 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const ytdl = require('@distube/ytdl-core');
+
+// Helper to extract YouTube URL from text
+function extractYoutubeUrl(text) {
+    if (!text) return null;
+    const match = text.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]+|https?:\/\/youtu\.be\/[a-zA-Z0-9_-]+/);
+    return match ? match[0] : null;
+}
 
 // Split keys by comma to support multi-key rotation
 const apiKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
@@ -199,7 +209,7 @@ async function startBot() {
             }
 
             // Define known command prefixes to avoid Auto-AI hijacking standard command words
-            const commands = ['hi', 'hello', 'hey', 'kohomada', 'කොහොමද', 'mama hodin', 'මම හොඳින්', 'මමත් හොඳින්', 'මමත් හොදින්', 'love you', 'i love you', 'ආදරෙයි', 'good morning', 'සුභ උදෑසනක්', 'gm', 'thanks', 'thank you', 'ස්තුතියි', 'bye', 'good bye', 'ගිහින් එන්නම්', 'good night', 'සුභ රාත්රියක්', 'gn', 'gn bs', 'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai'];
+            const commands = ['hi', 'hello', 'hey', 'kohomada', 'කොහොමද', 'mama hodin', 'මම හොඳින්', 'මමත් හොඳින්', 'මමත් හොදින්', 'love you', 'i love you', 'ආදරෙයි', 'good morning', 'සුභ උදෑසනක්', 'gm', 'thanks', 'thank you', 'ස්තුතියි', 'bye', 'good bye', 'ගිහින් එන්නම්', 'good night', 'සුභ රාත්රියක්', 'gn', 'gn bs', 'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai', '.mp3', '.mp4', 'mp3', 'mp4'];
             const isCommand = commands.some(c => cmd.startsWith(c));
 
             // HI
@@ -381,12 +391,158 @@ async function startBot() {
 
                     await sock.sendMessage(from, {
                         image: { url: thumbnail },
-                        caption: `🎥 *${video.title}*\n\n🔗 ${videoLink}`
+                        caption: `🎥 *${video.title}*\n\n🔗 ${videoLink}\n\n📥 *Download Options:*\n🎵 *MP3 (Audio):* Reply with *.mp3* or type *.mp3 <link>*\n🎬 *MP4 (Video):* Reply with *.mp4* or type *.mp4 <link>*`
                     }, { quoted: msg });
 
                 } catch (err) {
                     console.log(err);
                     await sock.sendMessage(from, { text: '❌ Search error.' }, { quoted: msg });
+                }
+            }
+            // MP3 DOWNLOADER
+            else if (cmd.startsWith('.mp3') || cmd.startsWith('mp3')) {
+                let url = '';
+                // 1. Check if URL is passed in the command itself
+                const args = text.trim().split(/\s+/);
+                if (args.length > 1) {
+                    url = args[1];
+                }
+                
+                // 2. If no URL in command, check if message is a reply
+                if (!url && msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
+                    const quotedText = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation ||
+                                       msg.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage?.text ||
+                                       msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage?.caption ||
+                                       '';
+                    url = extractYoutubeUrl(quotedText);
+                }
+
+                if (!url) {
+                    return await sock.sendMessage(from, { text: '❌ කරුණාකර YouTube Link එකක් ලබා දෙන්න. (උදා: .mp3 <link> හෝ සින්දුවට reply කරන්න)' }, { quoted: msg });
+                }
+
+                await sock.sendMessage(from, { react: { text: '📥', key: msg.key } });
+                await sock.sendMessage(from, { text: '⏳ MP3 audio එක download වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...' }, { quoted: msg });
+
+                const tempDir = path.join(__dirname, 'temp');
+                if (!fs.existsSync(tempDir)) {
+                    fs.mkdirSync(tempDir);
+                }
+
+                let tempFilePath = '';
+                try {
+                    const videoInfo = await ytdl.getInfo(url);
+                    const title = videoInfo.videoDetails.title.replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename
+                    tempFilePath = path.join(tempDir, `${title || 'audio'}_${Date.now()}.mp3`);
+
+                    const audioStream = ytdl(url, { 
+                        filter: 'audioonly', 
+                        quality: 'highestaudio',
+                        requestOptions: {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                            }
+                        }
+                    });
+
+                    const writeStream = fs.createWriteStream(tempFilePath);
+                    audioStream.pipe(writeStream);
+
+                    await new Promise((resolve, reject) => {
+                        writeStream.on('finish', resolve);
+                        writeStream.on('error', reject);
+                        audioStream.on('error', reject);
+                    });
+
+                    // Send downloaded audio file
+                    await sock.sendMessage(from, {
+                        document: { url: tempFilePath },
+                        mimetype: 'audio/mpeg',
+                        fileName: `${title}.mp3`
+                    }, { quoted: msg });
+
+                    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+                } catch (err) {
+                    console.log('MP3 Downloader Error:', err);
+                    await sock.sendMessage(from, { text: `❌ MP3 download කිරීම අසාර්ථක විය. (Error: ${err.message})` }, { quoted: msg });
+                } finally {
+                    if (tempFilePath && fs.existsSync(tempFilePath)) {
+                        try { fs.unlinkSync(tempFilePath); } catch (e) {}
+                    }
+                }
+            }
+            // MP4 DOWNLOADER
+            else if (cmd.startsWith('.mp4') || cmd.startsWith('mp4')) {
+                let url = '';
+                // 1. Check if URL is passed in the command itself
+                const args = text.trim().split(/\s+/);
+                if (args.length > 1) {
+                    url = args[1];
+                }
+                
+                // 2. If no URL in command, check if message is a reply
+                if (!url && msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
+                    const quotedText = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation ||
+                                       msg.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage?.text ||
+                                       msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage?.caption ||
+                                       '';
+                    url = extractYoutubeUrl(quotedText);
+                }
+
+                if (!url) {
+                    return await sock.sendMessage(from, { text: '❌ කරුණාකර YouTube Link එකක් ලබා දෙන්න. (උදා: .mp4 <link> හෝ සින්දුවට reply කරන්න)' }, { quoted: msg });
+                }
+
+                await sock.sendMessage(from, { react: { text: '📥', key: msg.key } });
+                await sock.sendMessage(from, { text: '⏳ MP4 video එක download වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...' }, { quoted: msg });
+
+                const tempDir = path.join(__dirname, 'temp');
+                if (!fs.existsSync(tempDir)) {
+                    fs.mkdirSync(tempDir);
+                }
+
+                let tempFilePath = '';
+                try {
+                    const videoInfo = await ytdl.getInfo(url);
+                    const title = videoInfo.videoDetails.title.replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename
+                    tempFilePath = path.join(tempDir, `${title || 'video'}_${Date.now()}.mp4`);
+
+                    const videoStream = ytdl(url, { 
+                        filter: 'audioandvideo',
+                        quality: 'highestvideo',
+                        requestOptions: {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                            }
+                        }
+                    });
+
+                    const writeStream = fs.createWriteStream(tempFilePath);
+                    videoStream.pipe(writeStream);
+
+                    await new Promise((resolve, reject) => {
+                        writeStream.on('finish', resolve);
+                        writeStream.on('error', reject);
+                        videoStream.on('error', reject);
+                    });
+
+                    // Send downloaded video file
+                    await sock.sendMessage(from, {
+                        video: { url: tempFilePath },
+                        caption: `🎥 *${videoInfo.videoDetails.title}*`,
+                        mimetype: 'video/mp4'
+                    }, { quoted: msg });
+
+                    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+                } catch (err) {
+                    console.log('MP4 Downloader Error:', err);
+                    await sock.sendMessage(from, { text: `❌ MP4 download කිරීම අසාර්ථක විය. (Error: ${err.message})` }, { quoted: msg });
+                } finally {
+                    if (tempFilePath && fs.existsSync(tempFilePath)) {
+                        try { fs.unlinkSync(tempFilePath); } catch (e) {}
+                    }
                 }
             }
             // CHATBOT / GEMINI AI TRIGGER
