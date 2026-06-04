@@ -54,6 +54,9 @@ const ytSearch = require('youtube-search-api');
 // AI Conversation History store (tracks messages in memory per user)
 const chatHistories = {};
 
+// Store pending video downloads for quality selection (maps from JID -> { url, title, timestamp })
+const pendingVideoDownloads = {};
+
 // Setting to toggle Auto AI replies in private messages (on by default)
 let autoAIActive = true;
 
@@ -206,6 +209,81 @@ async function startBot() {
                     }
                 );
                 return;
+            }
+
+            // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
+            const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            const quotedText = isReply ? (msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation || 
+                                          msg.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage?.text || 
+                                          msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage?.caption || 
+                                          '') : '';
+
+            if (isReply && quotedText.includes('Choose Video Quality') && pendingVideoDownloads[from]) {
+                const choice = cmd.trim();
+                if (choice === '1' || choice === '2' || choice === '3') {
+                    const pending = pendingVideoDownloads[from];
+                    delete pendingVideoDownloads[from]; // Clear pending item
+                    
+                    let height = 360;
+                    let label = '360p (Low Quality)';
+                    if (choice === '2') {
+                        height = 480;
+                        label = '480p (Medium Quality)';
+                    } else if (choice === '3') {
+                        height = 720;
+                        label = '720p (High Quality)';
+                    }
+                    
+                    await sock.sendMessage(from, { react: { text: '📥', key: msg.key } });
+                    await sock.sendMessage(from, { text: `⏳ *${label}* video එක download වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...` }, { quoted: msg });
+                    
+                    const tempDir = path.join(__dirname, 'temp');
+                    if (!fs.existsSync(tempDir)) {
+                        fs.mkdirSync(tempDir);
+                    }
+
+                    let tempFilePath = '';
+                    const uniqueId = Date.now();
+                    try {
+                        const title = pending.title;
+                        const url = pending.url;
+                        const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
+                        
+                        const command = `yt-dlp -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --max-filesize 50M -o "${outputPattern}" "${url}"`;
+                        await execPromise(command);
+
+                        const files = fs.readdirSync(tempDir);
+                        const downloadedFile = files.find(f => f.startsWith(`video_${uniqueId}.`));
+                        if (!downloadedFile) {
+                            throw new Error("Downloaded video file not found");
+                        }
+                        
+                        tempFilePath = path.join(tempDir, downloadedFile);
+
+                        await sock.sendMessage(from, {
+                            video: { url: tempFilePath },
+                            caption: `🎥 *${title.replace(/-/g, ' ')}* (${height}p)`,
+                            mimetype: 'video/mp4'
+                        }, { quoted: msg });
+
+                        await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+                    } catch (err) {
+                        console.log('MP4 Downloader Error:', err);
+                        let errMsg = err.message;
+                        if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
+                            errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
+                        } else {
+                            errMsg = `MP4 download කිරීම අසාර්ථක විය. (Error: ${err.message})`;
+                        }
+                        await sock.sendMessage(from, { text: `❌ ${errMsg}` }, { quoted: msg });
+                    } finally {
+                        if (tempFilePath && fs.existsSync(tempFilePath)) {
+                            try { fs.unlinkSync(tempFilePath); } catch (e) {}
+                        }
+                    }
+                    return; // Stop processing further command checks
+                }
             }
 
             // AUTO AI CONFIGURATION COMMANDS
@@ -497,55 +575,31 @@ async function startBot() {
                     return await sock.sendMessage(from, { text: '❌ කරුණාකර YouTube Link එකක් ලබා දෙන්න. (උදා: .mp4 <link> හෝ සින්දුවට reply කරන්න)' }, { quoted: msg });
                 }
 
-                await sock.sendMessage(from, { react: { text: '📥', key: msg.key } });
-                await sock.sendMessage(from, { text: '⏳ MP4 video එක download වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...' }, { quoted: msg });
-
-                const tempDir = path.join(__dirname, 'temp');
-                if (!fs.existsSync(tempDir)) {
-                    fs.mkdirSync(tempDir);
-                }
-
-                let tempFilePath = '';
-                const uniqueId = Date.now();
+                await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
+                
                 try {
                     const title = await fetchVideoTitle(url);
-                    const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
                     
-                    // Downloads combined video (prefers mp4 <= 720p to avoid heavy CPU merging and WhatsApp size limits)
-                    const command = `yt-dlp -f "best[height<=720][ext=mp4]/best[ext=mp4]/best" --max-filesize 50M -o "${outputPattern}" "${url}"`;
-                    await execPromise(command);
+                    // Save to pending downloads
+                    pendingVideoDownloads[from] = {
+                        url: url,
+                        title: title,
+                        timestamp: Date.now()
+                    };
 
-                    // Find the downloaded file
-                    const files = fs.readdirSync(tempDir);
-                    const downloadedFile = files.find(f => f.startsWith(`video_${uniqueId}.`));
-                    if (!downloadedFile) {
-                        throw new Error("Downloaded video file not found");
-                    }
-                    
-                    tempFilePath = path.join(tempDir, downloadedFile);
-
-                    // Send downloaded video file
                     await sock.sendMessage(from, {
-                        video: { url: tempFilePath },
-                        caption: `🎥 *${title.replace(/-/g, ' ')}*`,
-                        mimetype: 'video/mp4'
+                        text: `🎬 *Choose Video Quality*\n\n🎥 *Title:* ${title.replace(/-/g, ' ')}\n\n1️⃣ *360p* (Low Quality / Very Fast)\n2️⃣ *480p* (Medium Quality / Fast)\n3️⃣ *720p* (High Quality / Normal)\n\nමෙම message එකට *1*, *2* හෝ *3* ලෙස reply (Quote) කරන්න.`
                     }, { quoted: msg });
 
-                    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
-
                 } catch (err) {
-                    console.log('MP4 Downloader Error:', err);
+                    console.log('MP4 Trigger Error:', err);
                     let errMsg = err.message;
                     if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
                         errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
                     } else {
-                        errMsg = `MP4 download කිරීම අසාර්ථක විය. (Error: ${err.message})`;
+                        errMsg = `වීඩියෝ තොරතුරු ලබා ගැනීමට නොහැකි විය. (Error: ${err.message})`;
                     }
                     await sock.sendMessage(from, { text: `❌ ${errMsg}` }, { quoted: msg });
-                } finally {
-                    if (tempFilePath && fs.existsSync(tempFilePath)) {
-                        try { fs.unlinkSync(tempFilePath); } catch (e) {}
-                    }
                 }
             }
             // CHATBOT / GEMINI AI TRIGGER
