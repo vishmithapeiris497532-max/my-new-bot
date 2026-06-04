@@ -2,13 +2,26 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const ytdl = require('@distube/ytdl-core');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 // Helper to extract YouTube URL from text
 function extractYoutubeUrl(text) {
     if (!text) return null;
     const match = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?youtu(?:be\.com|\.be)\/[^\s]+/);
     return match ? match[0] : null;
+}
+
+// Helper to fetch title using yt-dlp
+async function fetchVideoTitle(url) {
+    try {
+        const { stdout } = await execPromise(`yt-dlp --get-title "${url}"`);
+        return stdout.trim().replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename characters
+    } catch (err) {
+        console.log("Error fetching title with yt-dlp:", err);
+        return "downloaded_media";
+    }
 }
 
 // Split keys by comma to support multi-key rotation
@@ -425,31 +438,25 @@ async function startBot() {
                 }
 
                 let tempFilePath = '';
+                const uniqueId = Date.now();
                 try {
-                    const videoInfo = await ytdl.getInfo(url);
-                    const title = videoInfo.videoDetails.title.replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename
-                    tempFilePath = path.join(tempDir, `${title || 'audio'}_${Date.now()}.mp3`);
+                    const title = await fetchVideoTitle(url);
+                    const outputPattern = path.join(tempDir, `audio_${uniqueId}.%(ext)s`);
+                    
+                    // Download best audio format (prefers m4a to avoid needing ffmpeg to convert webm to mp3/m4a if not installed)
+                    const command = `yt-dlp -f "ba[ext=m4a]/ba" -o "${outputPattern}" "${url}"`;
+                    await execPromise(command);
 
-                    const audioStream = ytdl(url, { 
-                        filter: 'audioonly', 
-                        quality: 'highestaudio',
-                        requestOptions: {
-                            headers: {
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                            }
-                        }
-                    });
+                    // Find the downloaded file
+                    const files = fs.readdirSync(tempDir);
+                    const downloadedFile = files.find(f => f.startsWith(`audio_${uniqueId}.`));
+                    if (!downloadedFile) {
+                        throw new Error("Downloaded audio file not found");
+                    }
+                    
+                    tempFilePath = path.join(tempDir, downloadedFile);
 
-                    const writeStream = fs.createWriteStream(tempFilePath);
-                    audioStream.pipe(writeStream);
-
-                    await new Promise((resolve, reject) => {
-                        writeStream.on('finish', resolve);
-                        writeStream.on('error', reject);
-                        audioStream.on('error', reject);
-                    });
-
-                    // Send downloaded audio file
+                    // Send downloaded audio file with mp3 filename for compatibility
                     await sock.sendMessage(from, {
                         document: { url: tempFilePath },
                         mimetype: 'audio/mpeg',
@@ -460,7 +467,13 @@ async function startBot() {
 
                 } catch (err) {
                     console.log('MP3 Downloader Error:', err);
-                    await sock.sendMessage(from, { text: `❌ MP3 download කිරීම අසාර්ථක විය. (Error: ${err.message})` }, { quoted: msg });
+                    let errMsg = err.message;
+                    if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
+                        errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
+                    } else {
+                        errMsg = `MP3 download කිරීම අසාර්ථක විය. (Error: ${err.message})`;
+                    }
+                    await sock.sendMessage(from, { text: `❌ ${errMsg}` }, { quoted: msg });
                 } finally {
                     if (tempFilePath && fs.existsSync(tempFilePath)) {
                         try { fs.unlinkSync(tempFilePath); } catch (e) {}
@@ -493,34 +506,28 @@ async function startBot() {
                 }
 
                 let tempFilePath = '';
+                const uniqueId = Date.now();
                 try {
-                    const videoInfo = await ytdl.getInfo(url);
-                    const title = videoInfo.videoDetails.title.replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename
-                    tempFilePath = path.join(tempDir, `${title || 'video'}_${Date.now()}.mp4`);
+                    const title = await fetchVideoTitle(url);
+                    const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
+                    
+                    // Downloads combined video (prefers mp4)
+                    const command = `yt-dlp -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b" -o "${outputPattern}" "${url}"`;
+                    await execPromise(command);
 
-                    const videoStream = ytdl(url, { 
-                        filter: 'audioandvideo',
-                        quality: 'highestvideo',
-                        requestOptions: {
-                            headers: {
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                            }
-                        }
-                    });
-
-                    const writeStream = fs.createWriteStream(tempFilePath);
-                    videoStream.pipe(writeStream);
-
-                    await new Promise((resolve, reject) => {
-                        writeStream.on('finish', resolve);
-                        writeStream.on('error', reject);
-                        videoStream.on('error', reject);
-                    });
+                    // Find the downloaded file
+                    const files = fs.readdirSync(tempDir);
+                    const downloadedFile = files.find(f => f.startsWith(`video_${uniqueId}.`));
+                    if (!downloadedFile) {
+                        throw new Error("Downloaded video file not found");
+                    }
+                    
+                    tempFilePath = path.join(tempDir, downloadedFile);
 
                     // Send downloaded video file
                     await sock.sendMessage(from, {
                         video: { url: tempFilePath },
-                        caption: `🎥 *${videoInfo.videoDetails.title}*`,
+                        caption: `🎥 *${title.replace(/-/g, ' ')}*`,
                         mimetype: 'video/mp4'
                     }, { quoted: msg });
 
@@ -528,7 +535,13 @@ async function startBot() {
 
                 } catch (err) {
                     console.log('MP4 Downloader Error:', err);
-                    await sock.sendMessage(from, { text: `❌ MP4 download කිරීම අසාර්ථක විය. (Error: ${err.message})` }, { quoted: msg });
+                    let errMsg = err.message;
+                    if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
+                        errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
+                    } else {
+                        errMsg = `MP4 download කිරීම අසාර්ථක විය. (Error: ${err.message})`;
+                    }
+                    await sock.sendMessage(from, { text: `❌ ${errMsg}` }, { quoted: msg });
                 } finally {
                     if (tempFilePath && fs.existsSync(tempFilePath)) {
                         try { fs.unlinkSync(tempFilePath); } catch (e) {}

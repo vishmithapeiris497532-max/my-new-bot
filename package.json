@@ -7,7 +7,6 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.12",
     "@google/generative-ai": "^0.21.0",
     "@whiskeysockets/baileys": "^6.6.0",
     "dotenv": "^16.4.5",
