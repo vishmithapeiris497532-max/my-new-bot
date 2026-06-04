@@ -9,7 +9,7 @@ function getModelInstance() {
     const key = apiKeys[currentKeyIndex] || "YOUR_GEMINI_API_KEY_HERE";
     const genAI = new GoogleGenerativeAI(key);
     return genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
+        model: "gemini-2.5-flash",
         systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot created by Vishmitha. 
 Your goal is to reply natural and conversational responses.
 Since your audience is from Sri Lanka, reply in Sinhala or a friendly mix of Sinhala and English (Singlish) where appropriate. 
