@@ -209,18 +209,22 @@ async function startBot() {
                     const sender = msg.key.participant || msg.key.remoteJid;
                     console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
 
-                    // React to status by sending a direct quoted reply with '🔥' (Only way to get the emoji overlay on avatar)
-                    if (!msg.key.fromMe && msg.key.participant) {
+                    // Only react if the status was posted by someone else (not fromMe)
+                    if (!msg.key.fromMe) {
+                        const myJid = jidNormalizedUser(sock.user?.id || sock.user?.jid || '');
                         await sock.sendMessage(
-                            msg.key.participant,
+                            'status@broadcast',
                             {
-                                text: '🔥'
+                                react: {
+                                    text: '🔥',
+                                    key: msg.key
+                                }
                             },
                             {
-                                quoted: msg
+                                statusJidList: [msg.key.participant, myJid]
                             }
                         );
-                        console.log(`🔥 Sent status reaction reply to: ${sender.split('@')[0]}`);
+                        console.log(`🔥 Reacted to status from: ${sender.split('@')[0]}`);
                     }
                 } catch (err) {
                     console.log('Error handling status:', err);
