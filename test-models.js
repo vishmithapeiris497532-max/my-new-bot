@@ -3,7 +3,9 @@ require('dotenv').config();
 
 async function run() {
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const apiKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
+    const key = apiKeys[0] || "YOUR_API_KEY_HERE";
+    const genAI = new GoogleGenerativeAI(key);
     console.log("Testing generation for listed model names:");
     const testModels = [
       "gemini-2.0-flash",
