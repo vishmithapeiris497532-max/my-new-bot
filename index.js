@@ -340,9 +340,9 @@ await sock.readMessages([msg.key]);
                 await sock.sendMessage(from, { text: '👋💖*පරිස්සමෙන් යන්න*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*' }, { quoted: msg });
             }
             // GOOD NIGHT
-            else if (cmd.includes('good night') || cmd.includes('සුභ රාත්රියක්') || cmd.includes('gn') || cmd.includes('gn bs')) {
+            else if (cmd.includes('good night') || cmd.includes('සුභ රාත්‍රියක්') || cmd.includes('gn') || cmd.includes('gn bs')) {
                 await sock.sendMessage(from, { react: { text: '🌙', key: msg.key } });
-                await sock.sendMessage(from, { text: '😴💖*සුභ රාත්රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
+                await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
             }
             // PING
             else if (cmd.includes('ping')) { 
