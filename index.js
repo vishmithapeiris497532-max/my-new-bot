@@ -194,22 +194,12 @@ async function startBot() {
                 '';
 
             const cmd = text.trim().toLowerCase();
-// AUTO STATUS VIEW + REACT
+
+        // AUTO STATUS VIEW + REACT
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
-        // Status view
         await sock.readMessages([msg.key]);
 
-        if (!msg.key.fromMe && msg.key.participant) {
-            await sock.sendReceipt(
-                'status@broadcast',
-                msg.key.participant,
-                [msg.key.id],
-                'read'
-            );
-        }
-
-        // React to status
         await sock.sendMessage(
             'status@broadcast',
             {
