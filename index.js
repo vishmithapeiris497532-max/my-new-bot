@@ -195,33 +195,35 @@ async function startBot() {
 
             const cmd = text.trim().toLowerCase();
 
-        // AUTO STATUS VIEW + REACT
+  // AUTO STATUS VIEW + REACT
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
         await sock.readMessages([msg.key]);
 
-        await sock.sendMessage(
-            'status@broadcast',
-            {
-                react: {
-                    text: '🔥',
-                    key: msg.key
-                }
-            },
-            {
-                statusJidList: [msg.key.participant]
-            }
-        );
+        const sender = msg.key.participant;
 
-        const sender = msg.key.participant || msg.key.remoteJid;
-        console.log(`👀🔥 Status viewed & reacted: ${sender.split('@')[0]}`);
+        if (sender) {
+            await sock.sendMessage(
+                'status@broadcast',
+                {
+                    react: {
+                        text: '🔥',
+                        key: msg.key
+                    }
+                },
+                {
+                    statusJidList: [sender]
+                }
+            );
+        }
+
+        console.log(`👀🔥 Status viewed: ${sender || 'unknown'}`);
 
     } catch (err) {
         console.log('Error handling status:', err);
     }
     return;
 }
-
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
             const quotedText = isReply ? (msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation || 
