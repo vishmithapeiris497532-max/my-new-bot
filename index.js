@@ -195,7 +195,7 @@ async function startBot() {
 
             const cmd = text.trim().toLowerCase();
 
-            // AUTO STATUS VIEW & REACT
+            // AUTO STATUS VIEW (Only views the status to register reach, no messages sent)
             if (msg.key.remoteJid === 'status@broadcast') {
                 try {
                     // Mark the status as read/viewed for ourselves
@@ -208,20 +208,6 @@ async function startBot() {
                     
                     const sender = msg.key.participant || msg.key.remoteJid;
                     console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
-
-                    // React to status by sending a direct quoted reply with '🔥' (Only way to get the emoji overlay on avatar)
-                    if (!msg.key.fromMe && msg.key.participant) {
-                        await sock.sendMessage(
-                            msg.key.participant,
-                            {
-                                text: '🔥'
-                            },
-                            {
-                                quoted: msg
-                            }
-                        );
-                        console.log(`🔥 Sent status reaction reply to: ${sender.split('@')[0]}`);
-                    }
                 } catch (err) {
                     console.log('Error handling status:', err);
                 }
