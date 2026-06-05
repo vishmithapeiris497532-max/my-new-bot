@@ -176,6 +176,9 @@ async function startBot() {
 
             if (!msg.message || (msg.key.fromMe && msg.key.remoteJid !== 'status@broadcast')) return;
 
+            // Ignore protocol messages (like message revokes/deletions, edits, etc.) and sender keys
+            if (msg.message.protocolMessage || msg.message.senderKeyDistributionMessage) return;
+
             // Ignore messages sent when the bot was offline (before bot start time)
             const messageTimestamp = msg.messageTimestamp?.low || msg.messageTimestamp || 0;
             if (messageTimestamp && messageTimestamp < botStartTime) {
@@ -206,18 +209,22 @@ async function startBot() {
                     const sender = msg.key.participant || msg.key.remoteJid;
                     console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
 
-                    // React to status by sending a direct quoted reply with '🔥' (100% reliable workaround)
-                    if (!msg.key.fromMe && msg.key.participant) {
+                    // Only react if the status was posted by someone else (not fromMe)
+                    if (!msg.key.fromMe) {
+                        const myJid = jidNormalizedUser(sock.user?.id || sock.user?.jid || '');
                         await sock.sendMessage(
-                            msg.key.participant,
+                            'status@broadcast',
                             {
-                                text: '🔥'
+                                react: {
+                                    text: '🔥',
+                                    key: msg.key
+                                }
                             },
                             {
-                                quoted: msg
+                                statusJidList: [msg.key.participant, myJid]
                             }
                         );
-                        console.log(`🔥 Sent status reaction reply to: ${sender.split('@')[0]}`);
+                        console.log(`🔥 Reacted to status from: ${sender.split('@')[0]}`);
                     }
                 } catch (err) {
                     console.log('Error handling status:', err);
