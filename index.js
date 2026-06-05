@@ -195,36 +195,39 @@ async function startBot() {
 
             const cmd = text.trim().toLowerCase();
 
-  // AUTO STATUS VIEW + REACT
-if (msg.key.remoteJid === 'status@broadcast') {
-    try {
-        console.log(msg.key);
-        await sock.readMessages([msg.key]);
+            // AUTO STATUS VIEW & REACT
+            if (msg.key.remoteJid === 'status@broadcast') {
+                try {
+                    // Mark the status as read/viewed for ourselves
+                    await sock.readMessages([msg.key]);
 
-        const sender = msg.key.participant;
-
-        if (sender) {
-            await sock.sendMessage(
-                'status@broadcast',
-                {
-                    react: {
-                        text: '🔥',
-                        key: msg.key
+                    // Force send a 'read' receipt to the sender (so they see we viewed it - reach/views)
+                    if (!msg.key.fromMe && msg.key.participant) {
+                        await sock.sendReceipt('status@broadcast', msg.key.participant, [msg.key.id], 'read');
                     }
-                },
-                {
-                    statusJidList: [sender]
+                    
+                    const sender = msg.key.participant || msg.key.remoteJid;
+                    console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
+
+                    // React to status by sending a direct quoted reply with '🔥' (Only way to get the emoji overlay on avatar)
+                    if (!msg.key.fromMe && msg.key.participant) {
+                        await sock.sendMessage(
+                            msg.key.participant,
+                            {
+                                text: '🔥'
+                            },
+                            {
+                                quoted: msg
+                            }
+                        );
+                        console.log(`🔥 Sent status reaction reply to: ${sender.split('@')[0]}`);
+                    }
+                } catch (err) {
+                    console.log('Error handling status:', err);
                 }
-            );
-        }
+                return;
+            }
 
-        console.log(`👀🔥 Status viewed: ${sender || 'unknown'}`);
-
-    } catch (err) {
-        console.log('Error handling status:', err);
-    }
-    return;
-}
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
             const quotedText = isReply ? (msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation || 
