@@ -198,6 +198,7 @@ async function startBot() {
   // AUTO STATUS VIEW + REACT
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
+        console.log(msg.key);
         await sock.readMessages([msg.key]);
 
         const sender = msg.key.participant;
