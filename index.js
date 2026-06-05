@@ -16,7 +16,7 @@ function extractYoutubeUrl(text) {
 // Helper to fetch title using yt-dlp
 async function fetchVideoTitle(url) {
     try {
-        const { stdout } = await execPromise(`yt-dlp --get-title "${url}"`);
+        const { stdout } = await execPromise(`yt-dlp --js-runtimes node --get-title "${url}"`);
         return stdout.trim().replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename characters
     } catch (err) {
         console.log("Error fetching title with yt-dlp:", err);
@@ -32,7 +32,7 @@ function getModelInstance() {
     const key = apiKeys[currentKeyIndex] || "YOUR_GEMINI_API_KEY_HERE";
     const genAI = new GoogleGenerativeAI(key);
     return genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot created by Vishmitha. 
 Your goal is to reply natural and conversational responses.
 Since your audience is from Sri Lanka, reply in Sinhala or a friendly mix of Sinhala and English (Singlish) where appropriate. 
@@ -250,7 +250,7 @@ async function startBot() {
                         const url = pending.url;
                         const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
                         
-                        const command = `yt-dlp -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --max-filesize 50M -o "${outputPattern}" "${url}"`;
+                        const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --max-filesize 50M -o "${outputPattern}" "${url}"`;
                         await execPromise(command);
 
                         const files = fs.readdirSync(tempDir);
@@ -523,7 +523,7 @@ async function startBot() {
                     const outputPattern = path.join(tempDir, `audio_${uniqueId}.%(ext)s`);
                     
                     // Download best audio format (prefers m4a to avoid needing ffmpeg to convert webm to mp3/m4a if not installed)
-                    const command = `yt-dlp -f "ba[ext=m4a]/ba" --max-filesize 15M -o "${outputPattern}" "${url}"`;
+                    const command = `yt-dlp --js-runtimes node -f "ba[ext=m4a]/ba" --max-filesize 15M -o "${outputPattern}" "${url}"`;
                     await execPromise(command);
 
                     // Find the downloaded file
