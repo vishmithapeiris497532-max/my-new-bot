@@ -191,23 +191,30 @@ async function startBot() {
 
             const cmd = text.trim().toLowerCase();
 
-            // AUTO STATUS REACT
-            if (
-                msg.key.remoteJid === 'status@broadcast' &&
-                !msg.key.fromMe
-            ) {
-                await sock.sendMessage(
-                    'status@broadcast',
-                    {
-                        react: {
-                            text: '🔥',
-                            key: msg.key
-                        }
-                    },
-                    {
-                        statusJidList: [msg.key.participant]
+            // AUTO STATUS VIEW & REACT
+            if (msg.key.remoteJid === 'status@broadcast') {
+                try {
+                    // Mark the status as read/viewed so the poster sees we viewed it (status reach/views)
+                    await sock.readMessages([msg.key]);
+
+                    // Only react if the status was posted by someone else (not fromMe)
+                    if (!msg.key.fromMe) {
+                        await sock.sendMessage(
+                            'status@broadcast',
+                            {
+                                react: {
+                                    text: '🔥',
+                                    key: msg.key
+                                }
+                            },
+                            {
+                                statusJidList: [msg.key.participant]
+                            }
+                        );
                     }
-                );
+                } catch (err) {
+                    console.log('Error handling status:', err);
+                }
                 return;
             }
 
