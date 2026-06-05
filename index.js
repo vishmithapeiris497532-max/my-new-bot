@@ -194,8 +194,14 @@ async function startBot() {
             // AUTO STATUS VIEW & REACT
             if (msg.key.remoteJid === 'status@broadcast') {
                 try {
-                    // Mark the status as read/viewed so the poster sees we viewed it (status reach/views)
+                    // Mark the status as read/viewed for ourselves
                     await sock.readMessages([msg.key]);
+
+                    // Force send a 'read' receipt to the sender (so they see we viewed it - reach/views)
+                    if (!msg.key.fromMe && msg.key.participant) {
+                        await sock.sendReceipt('status@broadcast', msg.key.participant, [msg.key.id], 'read');
+                    }
+                    
                     const sender = msg.key.participant || msg.key.remoteJid;
                     console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
 
