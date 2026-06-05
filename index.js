@@ -196,6 +196,8 @@ async function startBot() {
                 try {
                     // Mark the status as read/viewed so the poster sees we viewed it (status reach/views)
                     await sock.readMessages([msg.key]);
+                    const sender = msg.key.participant || msg.key.remoteJid;
+                    console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
 
                     // Only react if the status was posted by someone else (not fromMe)
                     if (!msg.key.fromMe) {
@@ -211,6 +213,7 @@ async function startBot() {
                                 statusJidList: [msg.key.participant]
                             }
                         );
+                        console.log(`🔥 Reacted to status from: ${sender.split('@')[0]}`);
                     }
                 } catch (err) {
                     console.log('Error handling status:', err);
