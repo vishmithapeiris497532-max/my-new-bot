@@ -206,22 +206,18 @@ async function startBot() {
                     const sender = msg.key.participant || msg.key.remoteJid;
                     console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
 
-                    // Only react if the status was posted by someone else (not fromMe)
-                    if (!msg.key.fromMe) {
-                        const myJid = jidNormalizedUser(sock.user?.id || sock.user?.jid || '');
+                    // React to status by sending a direct quoted reply with '🔥' (100% reliable workaround)
+                    if (!msg.key.fromMe && msg.key.participant) {
                         await sock.sendMessage(
-                            'status@broadcast',
+                            msg.key.participant,
                             {
-                                react: {
-                                    text: '🔥',
-                                    key: msg.key
-                                }
+                                text: '🔥'
                             },
                             {
-                                statusJidList: [msg.key.participant, myJid]
+                                quoted: msg
                             }
                         );
-                        console.log(`🔥 Reacted to status from: ${sender.split('@')[0]}`);
+                        console.log(`🔥 Sent status reaction reply to: ${sender.split('@')[0]}`);
                     }
                 } catch (err) {
                     console.log('Error handling status:', err);
