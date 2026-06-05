@@ -44,7 +44,8 @@ const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    jidNormalizedUser
 } = require('@whiskeysockets/baileys');
 
 const pino = require('pino');
@@ -207,6 +208,7 @@ async function startBot() {
 
                     // Only react if the status was posted by someone else (not fromMe)
                     if (!msg.key.fromMe) {
+                        const myJid = jidNormalizedUser(sock.user?.id || sock.user?.jid || '');
                         await sock.sendMessage(
                             'status@broadcast',
                             {
@@ -216,7 +218,7 @@ async function startBot() {
                                 }
                             },
                             {
-                                statusJidList: [msg.key.participant]
+                                statusJidList: [msg.key.participant, myJid]
                             }
                         );
                         console.log(`🔥 Reacted to status from: ${sender.split('@')[0]}`);
