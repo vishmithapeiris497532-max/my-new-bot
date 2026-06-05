@@ -173,7 +173,7 @@ async function startBot() {
         try {
             const msg = messages[0];
 
-            if (!msg.message || msg.key.fromMe) return;
+            if (!msg.message || (msg.key.fromMe && msg.key.remoteJid !== 'status@broadcast')) return;
 
             // Ignore messages sent when the bot was offline (before bot start time)
             const messageTimestamp = msg.messageTimestamp?.low || msg.messageTimestamp || 0;
