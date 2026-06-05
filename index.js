@@ -194,25 +194,43 @@ async function startBot() {
                 '';
 
             const cmd = text.trim().toLowerCase();
+// AUTO STATUS VIEW + REACT
+if (msg.key.remoteJid === 'status@broadcast') {
+    try {
+        // Status view
+        await sock.readMessages([msg.key]);
 
-            // AUTO STATUS VIEW (Only views the status to register reach, no messages sent)
-            if (msg.key.remoteJid === 'status@broadcast') {
-                try {
-                    // Mark the status as read/viewed for ourselves
-                    await sock.readMessages([msg.key]);
+        if (!msg.key.fromMe && msg.key.participant) {
+            await sock.sendReceipt(
+                'status@broadcast',
+                msg.key.participant,
+                [msg.key.id],
+                'read'
+            );
+        }
 
-                    // Force send a 'read' receipt to the sender (so they see we viewed it - reach/views)
-                    if (!msg.key.fromMe && msg.key.participant) {
-                        await sock.sendReceipt('status@broadcast', msg.key.participant, [msg.key.id], 'read');
-                    }
-                    
-                    const sender = msg.key.participant || msg.key.remoteJid;
-                    console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);
-                } catch (err) {
-                    console.log('Error handling status:', err);
+        // React to status
+        await sock.sendMessage(
+            'status@broadcast',
+            {
+                react: {
+                    text: '🔥',
+                    key: msg.key
                 }
-                return;
+            },
+            {
+                statusJidList: [msg.key.participant]
             }
+        );
+
+        const sender = msg.key.participant || msg.key.remoteJid;
+        console.log(`👀🔥 Status viewed & reacted: ${sender.split('@')[0]}`);
+
+    } catch (err) {
+        console.log('Error handling status:', err);
+    }
+    return;
+}
 
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
