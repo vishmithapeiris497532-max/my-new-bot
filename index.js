@@ -479,7 +479,7 @@ if (msg.key.remoteJid === 'status@broadcast') {
                 }, { quoted: msg });
             }
             // SONG
-            else if (cmd.startsWith('song ')) {
+            else if (cmd.startsWith('song,') || cmd.startsWith('video ')) {
                 const query = text.slice(5).trim();
 
                 if (!query) {
