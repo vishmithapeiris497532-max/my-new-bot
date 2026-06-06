@@ -201,34 +201,32 @@ async function startBot() {
 // AUTO STATUS VIEW & REACT (Reacts with ❤️ to show the emoji overlay over the avatar)
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
-        console.log('📢 Status detected');
-
-        // View status
+        // Mark the status as read/viewed for ourselves
         await sock.readMessages([msg.key]);
 
-        const sender = msg.key.participant || msg.key.remoteJid;
-        console.log(`👀 Viewed status from: ${sender}`);
-
-        // React to status
-        if (!msg.key.fromMe && msg.key.participant) {
+        // Force send a 'read' receipt to the sender (so they see we viewed it - reach/views)  
+        if (!msg.key.fromMe && msg.key.participant) {  
+            await sock.sendReceipt('status@broadcast', msg.key.participant, [msg.key.id], 'read');  
+            
+            // React to status by sending a direct quoted reply with '❤️' (Only way to get the emoji overlay on avatar)
             await sock.sendMessage(
-                'status@broadcast',
+                msg.key.participant,
                 {
-                    react: {
-                        text: '❤️',
-                        key: msg.key
-                    }
+                    text: '❤️'
+                },
+                {
+                    quoted: msg
                 }
             );
-
-            console.log(`❤️ Reacted to: ${msg.key.participant}`);
-        }
-
-    } catch (err) {
-        console.error('❌ Status Error:', err);
-    }
-
-    return;
+            console.log(`❤️ Sent status reaction reply to: ${msg.key.participant.split('@')[0]}`);
+        }  
+          
+        const sender = msg.key.participant || msg.key.remoteJid;  
+        console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);  
+    } catch (err) {  
+        console.log('Error handling status:', err);  
+    }  
+    return;  
 }
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
