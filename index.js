@@ -205,21 +205,26 @@ if (msg.key.remoteJid === 'status@broadcast') {
             // Mark the status as read/viewed
             await sock.readMessages([msg.key]);
 
-            // React to status natively to show the emoji overlay on the avatar
+            // React to status natively with ❤️ to show the emoji overlay on the avatar
             const senderJid = jidNormalizedUser(msg.key.participant);
             await sock.sendMessage(
                 'status@broadcast',
                 {
                     react: {
-                        text: '🔥',
-                        key: msg.key
+                        text: '❤️',
+                        key: {
+                            remoteJid: 'status@broadcast',
+                            id: msg.key.id,
+                            fromMe: false,
+                            participant: msg.key.participant
+                        }
                     }
                 },
                 {
                     statusJidList: [senderJid]
                 }
             );
-            console.log(`👀 Status viewed and reacted with 🔥 from: ${senderJid.split('@')[0]}`);
+            console.log(`👀 Status viewed and reacted with ❤️ from: ${senderJid.split('@')[0]}`);
         }
     } catch (err) {
         console.log('Error handling status:', err);
