@@ -201,10 +201,16 @@ async function startBot() {
 // AUTO STATUS VIEW & REACT (Reacts with ❤️ to show the emoji overlay over the avatar)
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
+        console.log('📢 Status detected');
+
+        // View status
         await sock.readMessages([msg.key]);
 
-        if (!msg.key.fromMe && msg.key.participant) {
+        const sender = msg.key.participant || msg.key.remoteJid;
+        console.log(`👀 Viewed status from: ${sender}`);
 
+        // React to status
+        if (!msg.key.fromMe && msg.key.participant) {
             await sock.sendMessage(
                 'status@broadcast',
                 {
@@ -215,12 +221,13 @@ if (msg.key.remoteJid === 'status@broadcast') {
                 }
             );
 
-            console.log(`❤️ Reacted to ${msg.key.participant}`);
+            console.log(`❤️ Reacted to: ${msg.key.participant}`);
         }
 
-    } catch (e) {
-        console.log(e);
+    } catch (err) {
+        console.error('❌ Status Error:', err);
     }
+
     return;
 }
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
