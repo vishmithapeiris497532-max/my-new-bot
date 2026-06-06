@@ -458,6 +458,7 @@ if (msg.key.remoteJid === 'status@broadcast') {
 
 🎵 YouTube Search
 ➤ Song <song name>
+➤ Video <video name>
 
 👥 Group Features
 ➤ Auto Welcome 👋
@@ -510,39 +511,7 @@ if (msg.key.remoteJid === 'status@broadcast') {
                     await sock.sendMessage(from, { text: '❌ Search error.' }, { quoted: msg });
                 }
             }
-//////
-             else if (cmd.startsWith('video ')) {
-                await sock.sendMessage(from, { react: { text: '📽️', key: msg.key } });
-                const query = text.slice(5).trim();
-
-                if (!query) {
-                    return await sock.sendMessage(from, { text: 'Video එකට නමක් දෙන්න!' }, { quoted: msg });
-                }
-
-               
-                await sock.sendMessage(from, { text: '🔍 YouTube search කරමින්...' }, { quoted: msg });
-
-                try {
-                    const result = await ytSearch.GetListByKeyword(query, false, 1);
-                    if (!result.items || result.items.length === 0) {
-                        return await sock.sendMessage(from, { text: '❌ Video එකක් හමු නොවුණි.' }, { quoted: msg });
-                    }
-
-                    const video = result.items[0];
-                    const videoLink = `https://www.youtube.com/watch?v=${video.id}`;
-                    const thumbnail = `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`;
-
-                    await sock.sendMessage(from, {
-                        image: { url: thumbnail },
-                        caption: `🎥 *${video.title}*\n\n🔗 ${videoLink}\n\n📥 *Download Options:*\n🎵 *MP3 (Audio):* Reply with *.mp3* or type *.mp3 <link>*\n🎬 *MP4 (Video):* Reply with *.mp4* or type *.mp4 <link>*`
-                    }, { quoted: msg });
-
-                } catch (err) {
-                    console.log(err);
-                    await sock.sendMessage(from, { text: '❌ Search error.' }, { quoted: msg });
-                }
-            }
-            // MP3 DOWNLOADER
+   // MP3 DOWNLOADER
             else if (cmd.startsWith('.mp3') || cmd.startsWith('mp3')) {
                 let url = extractYoutubeUrl(text);
                 
