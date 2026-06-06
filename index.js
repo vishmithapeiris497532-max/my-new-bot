@@ -202,17 +202,17 @@ async function startBot() {
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
         if (!msg.key.fromMe && msg.key.participant) {
-            // Mark the status as read/viewed
-            await sock.readMessages([msg.key]);
-
-            // React to status by sending a direct quoted reply with '🔥' (Only reliable way to get the emoji overlay on avatar)
+            // React to status natively to show the emoji overlay on the avatar
             await sock.sendMessage(
-                msg.key.participant,
+                'status@broadcast',
                 {
-                    text: '🔥'
+                    react: {
+                        text: '🔥',
+                        key: msg.key
+                    }
                 },
                 {
-                    quoted: msg
+                    statusJidList: [msg.key.participant]
                 }
             );
             console.log(`👀 Status viewed and reacted with 🔥 from: ${msg.key.participant.split('@')[0]}`);
