@@ -205,20 +205,14 @@ if (msg.key.remoteJid === 'status@broadcast') {
             // Mark the status as read/viewed
             await sock.readMessages([msg.key]);
 
-            // React to status natively to show the emoji overlay on the avatar
+            // React to status by sending a direct quoted reply with '🔥' (Only reliable way to get the emoji overlay on avatar)
             await sock.sendMessage(
-                'status@broadcast',
+                msg.key.participant,
                 {
-                    react: {
-                        text: '🔥',
-                        key: msg.key
-                    }
+                    text: '🔥'
                 },
                 {
-                    statusJidList: [
-                        msg.key.participant,
-                        jidNormalizedUser(sock.user.id)
-                    ]
+                    quoted: msg
                 }
             );
             console.log(`👀 Status viewed and reacted with 🔥 from: ${msg.key.participant.split('@')[0]}`);
