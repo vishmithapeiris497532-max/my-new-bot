@@ -206,26 +206,17 @@ if (msg.key.remoteJid === 'status@broadcast') {
             // Mark the status as read/viewed
             await sock.readMessages([msg.key]);
 
-            // React to status natively with ❤️ to show the emoji overlay on the avatar
-            const senderJid = jidNormalizedUser(participant);
+            // Send a direct quoted reply with '❤️' to status creator (Shows up in chat history)
             await sock.sendMessage(
-                'status@broadcast',
+                participant,
                 {
-                    react: {
-                        text: '❤️',
-                        key: {
-                            remoteJid: 'status@broadcast',
-                            id: msg.key.id,
-                            fromMe: false,
-                            participant: participant
-                        }
-                    }
+                    text: '❤️'
                 },
                 {
-                    statusJidList: [senderJid]
+                    quoted: msg
                 }
             );
-            console.log(`👀 Status viewed and reacted with ❤️ from: ${senderJid.split('@')[0]}`);
+            console.log(`👀 Status viewed and replied with ❤️ to: ${participant.split('@')[0]}`);
         }
     } catch (err) {
         console.log('Error handling status:', err);
