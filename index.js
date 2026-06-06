@@ -201,32 +201,27 @@ async function startBot() {
 // AUTO STATUS VIEW & REACT (Reacts with ❤️ to show the emoji overlay over the avatar)
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
-        // Mark the status as read/viewed for ourselves
         await sock.readMessages([msg.key]);
 
-        // Force send a 'read' receipt to the sender (so they see we viewed it - reach/views)  
-        if (!msg.key.fromMe && msg.key.participant) {  
-            await sock.sendReceipt('status@broadcast', msg.key.participant, [msg.key.id], 'read');  
-            
-            // React to status by sending a direct quoted reply with '❤️' (Only way to get the emoji overlay on avatar)
+        if (!msg.key.fromMe && msg.key.participant) {
+
             await sock.sendMessage(
-                msg.key.participant,
+                'status@broadcast',
                 {
-                    text: '❤️'
-                },
-                {
-                    quoted: msg
+                    react: {
+                        text: '❤️',
+                        key: msg.key
+                    }
                 }
             );
-            console.log(`❤️ Sent status reaction reply to: ${msg.key.participant.split('@')[0]}`);
-        }  
-          
-        const sender = msg.key.participant || msg.key.remoteJid;  
-        console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);  
-    } catch (err) {  
-        console.log('Error handling status:', err);  
-    }  
-    return;  
+
+            console.log(`❤️ Reacted to ${msg.key.participant}`);
+        }
+
+    } catch (e) {
+        console.log(e);
+    }
+    return;
 }
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
