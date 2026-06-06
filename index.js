@@ -480,7 +480,7 @@ if (msg.key.remoteJid === 'status@broadcast') {
                 }, { quoted: msg });
             }
             // SONG
-            else if (cmd.startsWith('song,') || cmd.startsWith('video ')) {
+            else if (cmd.startsWith('song ') || cmd.startsWith('video ')) {
                 await sock.sendMessage(from, { react: { text: '📽️', key: msg.key } });
                 const query = text.slice(5).trim();
 
