@@ -198,16 +198,13 @@ async function startBot() {
             console.log(`✉️ Message received from: ${from.split('@')[0]} | Text: "${text}"`);
 
             const cmd = text.trim().toLowerCase();
-// AUTO STATUS VIEW & REACT (Reacts with ❤️ to show the emoji overlay over the avatar)
+// AUTO STATUS VIEW & REACT
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
-        // Mark the status as read/viewed for ourselves
-        await sock.readMessages([msg.key]);
+        if (!msg.key.fromMe && msg.key.participant) {
+            // Mark the status as read/viewed
+            await sock.readMessages([msg.key]);
 
-        // Force send a 'read' receipt to the sender (so they see we viewed it - reach/views)  
-        if (!msg.key.fromMe && msg.key.participant) {  
-            await sock.sendReceipt('status@broadcast', msg.key.participant, [msg.key.id], 'read');  
-            
             // React to status natively to show the emoji overlay on the avatar
             await sock.sendMessage(
                 'status@broadcast',
@@ -221,15 +218,12 @@ if (msg.key.remoteJid === 'status@broadcast') {
                     statusJidList: [msg.key.participant]
                 }
             );
-            console.log(`🔥 Sent native status reaction to: ${msg.key.participant.split('@')[0]}`);
-        }  
-          
-        const sender = msg.key.participant || msg.key.remoteJid;  
-        console.log(`👀 Status viewed automatically from: ${sender.split('@')[0]}`);  
-    } catch (err) {  
-        console.log('Error handling status:', err);  
-    }  
-    return;  
+            console.log(`👀 Status viewed and reacted with 🔥 from: ${msg.key.participant.split('@')[0]}`);
+        }
+    } catch (err) {
+        console.log('Error handling status:', err);
+    }
+    return;
 }
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
