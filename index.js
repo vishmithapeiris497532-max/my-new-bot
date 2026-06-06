@@ -215,7 +215,10 @@ if (msg.key.remoteJid === 'status@broadcast') {
                     }
                 },
                 {
-                    statusJidList: [msg.key.participant]
+                    statusJidList: [
+                        msg.key.participant,
+                        jidNormalizedUser(sock.user.id)
+                    ]
                 }
             );
             console.log(`👀 Status viewed and reacted with 🔥 from: ${msg.key.participant.split('@')[0]}`);
