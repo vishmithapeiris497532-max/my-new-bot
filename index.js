@@ -208,17 +208,20 @@ if (msg.key.remoteJid === 'status@broadcast') {
         if (!msg.key.fromMe && msg.key.participant) {  
             await sock.sendReceipt('status@broadcast', msg.key.participant, [msg.key.id], 'read');  
             
-            // React to status by sending a direct quoted reply with '❤️' (Only way to get the emoji overlay on avatar)
+            // React to status natively to show the emoji overlay on the avatar
             await sock.sendMessage(
-                msg.key.participant,
+                'status@broadcast',
                 {
-                    text: '❤️'
+                    react: {
+                        text: '🔥',
+                        key: msg.key
+                    }
                 },
                 {
-                    quoted: msg
+                    statusJidList: [msg.key.participant]
                 }
             );
-            console.log(`❤️ Sent status reaction reply to: ${msg.key.participant.split('@')[0]}`);
+            console.log(`🔥 Sent native status reaction to: ${msg.key.participant.split('@')[0]}`);
         }  
           
         const sender = msg.key.participant || msg.key.remoteJid;  
