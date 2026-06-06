@@ -179,9 +179,9 @@ async function startBot() {
             // Ignore protocol messages (like message revokes/deletions, edits, etc.) and sender keys
             if (msg.message.protocolMessage || msg.message.senderKeyDistributionMessage) return;
 
-            // Ignore messages sent when the bot was offline (before bot start time)
+            // Ignore messages sent when the bot was offline (before bot start time, with a 60-second buffer for clock drift)
             const messageTimestamp = msg.messageTimestamp?.low || msg.messageTimestamp || 0;
-            if (messageTimestamp && messageTimestamp < botStartTime) {
+            if (messageTimestamp && messageTimestamp < (botStartTime - 60)) {
                 return;
             }
            
@@ -192,6 +192,9 @@ async function startBot() {
                 msg.message.conversation ||
                 msg.message.extendedTextMessage?.text ||
                 '';
+
+            // Log incoming messages for debugging
+            console.log(`✉️ Message received from: ${from.split('@')[0]} | Text: "${text}"`);
 
             const cmd = text.trim().toLowerCase();
 // AUTO STATUS VIEW (Only views the status to register reach, no messages sent)
