@@ -481,14 +481,15 @@ if (msg.key.remoteJid === 'status@broadcast') {
             }
             // SONG
             else if (cmd.startsWith('song ') || cmd.startsWith('video ')) {
-                await sock.sendMessage(from, { react: { text: '📽️', key: msg.key } });
+                const reactEmoji = cmd.startsWith('song ') ? '🎧' : '📽️';
+                await sock.sendMessage(from, { react: { text: reactEmoji, key: msg.key } });
                 const query = text.slice(5).trim();
 
                 if (!query) {
                     return await sock.sendMessage(from, { text: 'සින්දුවේ නමක් දෙන්න!' }, { quoted: msg });
                 }
 
-                await sock.sendMessage(from, { react: { text: '🎧', key: msg.key } });
+                await sock.sendMessage(from, { react: { text: reactEmoji, key: msg.key } });
                 await sock.sendMessage(from, { text: '🔍 YouTube search කරමින්...' }, { quoted: msg });
 
                 try {
