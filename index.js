@@ -202,7 +202,11 @@ async function startBot() {
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
         if (!msg.key.fromMe && msg.key.participant) {
+            // Mark the status as read/viewed
+            await sock.readMessages([msg.key]);
+
             // React to status natively to show the emoji overlay on the avatar
+            const senderJid = jidNormalizedUser(msg.key.participant);
             await sock.sendMessage(
                 'status@broadcast',
                 {
@@ -212,10 +216,10 @@ if (msg.key.remoteJid === 'status@broadcast') {
                     }
                 },
                 {
-                    statusJidList: [msg.key.participant]
+                    statusJidList: [senderJid]
                 }
             );
-            console.log(`👀 Status viewed and reacted with 🔥 from: ${msg.key.participant.split('@')[0]}`);
+            console.log(`👀 Status viewed and reacted with 🔥 from: ${senderJid.split('@')[0]}`);
         }
     } catch (err) {
         console.log('Error handling status:', err);
