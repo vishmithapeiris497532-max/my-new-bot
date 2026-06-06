@@ -201,12 +201,13 @@ async function startBot() {
 // AUTO STATUS VIEW & REACT
 if (msg.key.remoteJid === 'status@broadcast') {
     try {
-        if (!msg.key.fromMe && msg.key.participant) {
+        const participant = msg.key.participant || msg.participant;
+        if (!msg.key.fromMe && participant) {
             // Mark the status as read/viewed
             await sock.readMessages([msg.key]);
 
             // React to status natively with ❤️ to show the emoji overlay on the avatar
-            const senderJid = jidNormalizedUser(msg.key.participant);
+            const senderJid = jidNormalizedUser(participant);
             await sock.sendMessage(
                 'status@broadcast',
                 {
@@ -216,7 +217,7 @@ if (msg.key.remoteJid === 'status@broadcast') {
                             remoteJid: 'status@broadcast',
                             id: msg.key.id,
                             fromMe: false,
-                            participant: msg.key.participant
+                            participant: participant
                         }
                     }
                 },
