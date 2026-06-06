@@ -173,6 +173,7 @@ async function startBot() {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const msg = messages[0];
+            console.log(`[Message Upsert] Event triggered! ID: ${msg?.key?.id} | remoteJid: ${msg?.key?.remoteJid} | fromMe: ${msg?.key?.fromMe}`);
 
             if (!msg.message || (msg.key.fromMe && msg.key.remoteJid !== 'status@broadcast')) return;
 
