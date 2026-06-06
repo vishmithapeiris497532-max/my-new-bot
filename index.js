@@ -206,17 +206,17 @@ if (msg.key.remoteJid === 'status@broadcast') {
             // Mark the status as read/viewed
             await sock.readMessages([msg.key]);
 
-            // Send a direct quoted reply with '❤️' to status creator (Shows up in chat history)
+            // Send a direct quoted reply with '✨💗' to status creator (Shows up in chat history)
             await sock.sendMessage(
                 participant,
                 {
-                    text: '❤️'
+                    text: '✨💗'
                 },
                 {
                     quoted: msg
                 }
             );
-            console.log(`👀 Status viewed and replied with ❤️ to: ${participant.split('@')[0]}`);
+            console.log(`👀 Status viewed and replied with ✨💗 to: ${participant.split('@')[0]}`);
         }
     } catch (err) {
         console.log('Error handling status:', err);
