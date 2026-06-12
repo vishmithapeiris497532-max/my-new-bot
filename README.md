@@ -1,3 +1,12 @@
+---
+title: MV WhatsApp Bot
+emoji: 🤖
+colorFrom: pink
+colorTo: purple
+sdk: docker
+app_port: 8000
+---
+
 # 🤖 MV BOT with Gemini AI Integration
 
 මේ WhatsApp Bot එකට Gemini AI එක සම්බන්ධ කරලා, Direct Messages (DMs) වලදී auto-reply කරන්න සහ AI chat history එක මතක තබාගෙන පිළිතුරු දෙන්න සකස් කර තිබෙනවා.
