@@ -783,3 +783,14 @@ async function startBot() {
 }
 
 startBot();
+
+// Tiny HTTP server to satisfy Koyeb/Render port health checks
+const http = require('http');
+const port = process.env.PORT || 8000;
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('MV Bot is running successfully!\n');
+});
+server.listen(port, () => {
+    console.log(`📡 HTTP Health check server listening on port ${port}`);
+});
