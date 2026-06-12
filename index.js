@@ -61,8 +61,7 @@ const pendingVideoDownloads = {};
 // Setting to toggle Auto AI replies in private messages (on by default)
 let autoAIActive = true;
 
-// Store the bot start time to ignore offline messages
-const botStartTime = Math.floor(Date.now() / 1000);
+// We filter out historical/offline messages using Baileys event type 'notify'
 
 /**
  * Gets the chat history for a specific sender JID.
@@ -87,10 +86,53 @@ function addToHistory(from, role, text) {
     }
 }
 
-async function startBot() {
+let sock = null;
 
-    const { state, saveCreds } =
-        await useMultiFileAuthState('./baileys_auth');
+async function startBot() {
+    // Prevent duplicate active socket instances
+    if (sock) {
+        console.log('🧹 Cleaning up previous socket instance...');
+        try {
+            sock.ev.removeAllListeners('connection.update');
+            sock.ev.removeAllListeners('creds.update');
+            sock.ev.removeAllListeners('messages.upsert');
+            sock.ev.removeAllListeners('group-participants.update');
+            if (sock.ws) sock.ws.close();
+        } catch (e) {
+            console.log('Error cleaning up previous socket:', e);
+        }
+        sock = null;
+    }
+
+    // Restore session from Environment Variable if hosting on Render/Railway
+    if (process.env.SESSION_DATA) {
+        try {
+            const tempDir = './baileys_auth';
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir, { recursive: true });
+            }
+            const credsContent = Buffer.from(process.env.SESSION_DATA, 'base64').toString('utf-8');
+            fs.writeFileSync(path.join(tempDir, 'creds.json'), credsContent);
+            console.log('✅ Session restored successfully from Environment Variable (SESSION_DATA)!');
+        } catch (err) {
+            console.log('⚠️ Error restoring session from Environment Variable:', err.message);
+        }
+    }
+
+    let state, saveCreds;
+    try {
+        const authResult = await useMultiFileAuthState('./baileys_auth');
+        state = authResult.state;
+        saveCreds = authResult.saveCreds;
+    } catch (err) {
+        console.log('⚠️ Error loading auth session (files might be corrupted):', err.message);
+        console.log('Deleting baileys_auth folder and starting fresh...');
+        try {
+            fs.rmSync('./baileys_auth', { recursive: true, force: true });
+        } catch (e) {}
+        setTimeout(startBot, 5000);
+        return;
+    }
 
     // Automatically fetch the latest WhatsApp Web version to prevent 405 Connection Failure
     let version = [2, 3000, 1017578278]; // Default fallback version
@@ -102,35 +144,63 @@ async function startBot() {
         console.log("⚠️ Error fetching latest WhatsApp version, using fallback:", err.message);
     }
 
-    const sock = makeWASocket({
+    sock = makeWASocket({
         auth: state,
         version: version,
-        logger: pino({ level: 'silent' })
+        logger: pino({ level: 'silent' }),
+        keepAliveIntervalMs: 30000,          // Send a ping every 30 seconds
+        defaultQueryTimeoutMs: 60000,        // Timeout queries in 60 seconds
+        connectTimeoutMs: 60000             // Connection timeout in 60 seconds
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
-
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
             console.clear();
             qrcode.generate(qr, { small: true });
+            console.log('📷 Scan the QR code above to link your bot.');
         }
 
         if (connection === 'open') {
             console.log('✅ Bot Connected Successfully!');
+            setTimeout(() => {
+                try {
+                    const credsPath = path.resolve(process.cwd(), 'baileys_auth', 'creds.json');
+                    if (fs.existsSync(credsPath)) {
+                        const credsData = fs.readFileSync(credsPath, 'utf-8');
+                        const base64Session = Buffer.from(credsData).toString('base64');
+                        console.log('\n🔑 ==================== YOUR SESSION DATA ====================\n');
+                        console.log(base64Session);
+                        console.log('\n🔑 =============================================================\n');
+                        console.log('Copy the key above and set it as the SESSION_DATA environment variable in Render/Railway.');
+                    } else {
+                        console.log('⚠️ creds.json file not found at:', credsPath);
+                    }
+                } catch (e) {
+                    console.log('Error generating session string:', e.message);
+                }
+            }, 3000); // Wait 3 seconds to let saveCreds write to disk
         }
 
         if (connection === 'close') {
-            console.log('Connection closed:', lastDisconnect?.error);
+            const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode;
+            console.log('Connection closed. Status code:', statusCode, 'Error:', lastDisconnect?.error);
 
-            if (
-                lastDisconnect?.error?.output?.statusCode !==
-                DisconnectReason.loggedOut
-            ) {
-                console.log('🔄 Reconnecting...');
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+            if (shouldReconnect) {
+                console.log('🔄 Reconnecting in 5 seconds...');
+                setTimeout(startBot, 5000);
+            } else {
+                console.log('❌ Bot logged out. Clearing session and restarting to generate new QR...');
+                try {
+                    fs.rmSync('./baileys_auth', { recursive: true, force: true });
+                } catch (e) {
+                    console.log('Error deleting baileys_auth folder:', e);
+                }
                 setTimeout(startBot, 5000);
             }
         }
@@ -170,21 +240,46 @@ async function startBot() {
 
     // MESSAGES LOGIC
 
-    sock.ev.on('messages.upsert', async ({ messages }) => {
+    sock.ev.on('messages.upsert', async ({ messages, type }) => {
         try {
+            // Only process real-time new messages to avoid reacting/replying to historical/offline sync data
+            if (type !== 'notify') return;
+
             const msg = messages[0];
+            if (!msg.message) return;
+
+            // Handle status updates immediately before any other filters (avoiding senderKeyDistributionMessage drops)
+            if (msg.key.remoteJid === 'status@broadcast') {
+                try {
+                    const participant = msg.key.participant || msg.participant;
+                    if (!msg.key.fromMe && participant) {
+                        // Mark the status as read/viewed
+                        await sock.readMessages([msg.key]);
+
+                        // Send a direct quoted reply with '✨💗' to status creator
+                        await sock.sendMessage(
+                            participant,
+                            {
+                                text: '✨💗'
+                            },
+                            {
+                                quoted: msg
+                            }
+                        );
+                        console.log(`👀 Status viewed and replied with ✨💗 to: ${participant.split('@')[0]}`);
+                    }
+                } catch (err) {
+                    console.log('Error handling status:', err);
+                }
+                return;
+            }
+
             console.log(`[Message Upsert] Event triggered! ID: ${msg?.key?.id} | remoteJid: ${msg?.key?.remoteJid} | fromMe: ${msg?.key?.fromMe}`);
 
-            if (!msg.message || (msg.key.fromMe && msg.key.remoteJid !== 'status@broadcast')) return;
+            if (msg.key.fromMe) return;
 
             // Ignore protocol messages (like message revokes/deletions, edits, etc.) and sender keys
             if (msg.message.protocolMessage || msg.message.senderKeyDistributionMessage) return;
-
-            // Ignore messages sent when the bot was offline (before bot start time, with a 60-second buffer for clock drift)
-            const messageTimestamp = msg.messageTimestamp?.low || msg.messageTimestamp || 0;
-            if (messageTimestamp && messageTimestamp < (botStartTime - 60)) {
-                return;
-            }
            
             const from = msg.key.remoteJid;
             const isGroup = from.endsWith('@g.us');
@@ -198,31 +293,6 @@ async function startBot() {
             console.log(`✉️ Message received from: ${from.split('@')[0]} | Text: "${text}"`);
 
             const cmd = text.trim().toLowerCase();
-// AUTO STATUS VIEW & REACT
-if (msg.key.remoteJid === 'status@broadcast') {
-    try {
-        const participant = msg.key.participant || msg.participant;
-        if (!msg.key.fromMe && participant) {
-            // Mark the status as read/viewed
-            await sock.readMessages([msg.key]);
-
-            // Send a direct quoted reply with '✨💗' to status creator (Shows up in chat history)
-            await sock.sendMessage(
-                participant,
-                {
-                    text: '✨💗'
-                },
-                {
-                    quoted: msg
-                }
-            );
-            console.log(`👀 Status viewed and replied with ✨💗 to: ${participant.split('@')[0]}`);
-        }
-    } catch (err) {
-        console.log('Error handling status:', err);
-    }
-    return;
-}
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
             const quotedText = isReply ? (msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation || 
