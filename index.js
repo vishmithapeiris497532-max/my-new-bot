@@ -507,15 +507,6 @@ async function startBot() {
                 // Fetch basic video metadata (title, duration, etc.)
                 const videoDetails = await fetchVideoDetails(url);
 
-                // Save to pending downloads
-                pendingVideoDownloads[from] = {
-                    url: url,
-                    title: videoDetails.title || `${platformName} Video`,
-                    isSocial: true,
-                    platform: platformName,
-                    timestamp: Date.now()
-                };
-
                 const textContent = `───━━━━─●●●●●─━━━━───
 🎬 *${platformName.toUpperCase()} VIDEO READY!*
 ✨ *MV BOT prepared your video* ✨
@@ -537,19 +528,26 @@ async function startBot() {
 
 💬 *Reply:* 1 / 2 / 3 / 4`;
 
-                await sock.sendMessage(from, { text: textContent }, { quoted: msg });
+                const promptMsg = await sock.sendMessage(from, { text: textContent }, { quoted: msg });
+                const promptMsgId = promptMsg.key.id;
+
+                // Save to pending downloads using the prompt message ID
+                pendingVideoDownloads[promptMsgId] = {
+                    url: url,
+                    title: videoDetails.title || `${platformName} Video`,
+                    isSocial: true,
+                    platform: platformName,
+                    timestamp: Date.now()
+                };
                 return;
             }
 
             const cmd = text.trim().toLowerCase();
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-            const quotedText = isReply ? (msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation || 
-                                          msg.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage?.text || 
-                                          msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage?.caption || 
-                                          '') : '';
+            const quotedMsgId = msg.message.extendedTextMessage?.contextInfo?.stanzaId;
 
-            if (isReply && (quotedText.includes('Choose Quality:') || quotedText.includes('prepared your video')) && pendingVideoDownloads[from]) {
+            if (isReply && quotedMsgId && pendingVideoDownloads[quotedMsgId]) {
                 const match = cmd.match(/[1234]|❶|❷|❸|❹|1️⃣|2️⃣|3️⃣|4️⃣/);
                 if (match) {
                     let choice = match[0];
@@ -558,8 +556,8 @@ async function startBot() {
                     if (choice === '❸' || choice === '3️⃣') choice = '3';
                     if (choice === '❹' || choice === '4️⃣') choice = '4';
                     
-                    const pending = pendingVideoDownloads[from];
-                    delete pendingVideoDownloads[from]; // Clear pending item
+                    const pending = pendingVideoDownloads[quotedMsgId];
+                    delete pendingVideoDownloads[quotedMsgId]; // Clear pending item
                     
                     let height = 360;
                     let label = '360p Fast';
@@ -1021,15 +1019,6 @@ async function startBot() {
                 try {
                     const details = await fetchVideoDetails(url);
                     
-                    // Save to pending downloads
-                    pendingVideoDownloads[from] = {
-                        url: url,
-                        title: details.title,
-                        uploader: details.uploader,
-                        duration: details.duration,
-                        timestamp: Date.now()
-                    };
-
                     const textContent = `───━━━━─●●●●●─━━━━───
 🎬 *YOUTUBE VIDEO READY!*
 ✨ *MV BOT prepared your video* ✨
@@ -1051,7 +1040,17 @@ async function startBot() {
 
 💬 *Reply:* 1 / 2 / 3 / 4`;
 
-                    await sock.sendMessage(from, { text: textContent }, { quoted: msg });
+                    const promptMsg = await sock.sendMessage(from, { text: textContent }, { quoted: msg });
+                    const promptMsgId = promptMsg.key.id;
+
+                    // Save to pending downloads using the prompt message ID
+                    pendingVideoDownloads[promptMsgId] = {
+                        url: url,
+                        title: details.title,
+                        uploader: details.uploader,
+                        duration: details.duration,
+                        timestamp: Date.now()
+                    };
 
                 } catch (err) {
                     console.log('MP4 Trigger Error:', err);
