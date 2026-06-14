@@ -398,56 +398,21 @@ async function startBot() {
                 const { type, url } = socialMediaMatch;
                 const platformName = type.charAt(0).toUpperCase() + type.slice(1);
                 
-                await sock.sendMessage(from, { react: { text: '📥', key: msg.key } });
-                await sock.sendMessage(from, { text: `⏳ *${platformName}* video එක download වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...` }, { quoted: msg });
+                await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
+                
+                // Save to pending downloads
+                pendingVideoDownloads[from] = {
+                    url: url,
+                    title: `${platformName} Video`,
+                    isSocial: true,
+                    platform: platformName,
+                    timestamp: Date.now()
+                };
 
-                const tempDir = path.join(__dirname, 'temp');
-                if (!fs.existsSync(tempDir)) {
-                    fs.mkdirSync(tempDir);
-                }
-
-                let tempFilePath = '';
-                const uniqueId = Date.now();
-                try {
-                    const outputPattern = path.join(tempDir, `social_${uniqueId}.%(ext)s`);
-                    
-                    const command = `yt-dlp --js-runtimes node -f "best[height<=480][ext=mp4]/best[ext=mp4]/best" --max-filesize 50M -o "${outputPattern}" "${url}"`;
-                    await execPromise(command);
-
-                    const files = fs.readdirSync(tempDir);
-                    const downloadedFile = files.find(f => f.startsWith(`social_${uniqueId}.`));
-                    if (!downloadedFile) {
-                        throw new Error("Downloaded file not found");
-                    }
-                    
-                    tempFilePath = path.join(tempDir, downloadedFile);
-
-                    await sock.sendMessage(from, {
-                        video: { url: tempFilePath },
-                        caption: `🎥 *Downloaded from ${platformName}*`,
-                        mimetype: 'video/mp4'
-                    }, { quoted: msg });
-
-                    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
-
-                } catch (err) {
-                    console.log(`${platformName} Downloader Error:`, err);
-                    let errMsg = err.message;
-                    if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
-                        errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
-                    } else if (errMsg.includes('max-filesize')) {
-                        errMsg = "වීඩියෝව WhatsApp limit එකට වඩා විශාල වැඩිය. (Max size: 50MB)";
-                    } else {
-                        errMsg = `${platformName} download කිරීම අසාර්ථක විය. (Link එක private එකක් විය හැක හෝ error එකක් සිදු විය)`;
-                    }
-                    await sock.sendMessage(from, { text: `❌ ${errMsg}` }, { quoted: msg });
-                    await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
-                } finally {
-                    if (tempFilePath && fs.existsSync(tempFilePath)) {
-                        try { fs.unlinkSync(tempFilePath); } catch (e) {}
-                    }
-                }
-                return; 
+                await sock.sendMessage(from, {
+                    text: `🎬 *Choose Video Quality*\n\n🎥 *Source:* ${platformName}\n\n1️⃣ *360p* (Low Quality / Very Fast)\n2️⃣ *480p* (Medium Quality / Fast)\n3️⃣ *720p* (High Quality / Normal)\n\nමෙම message එකට *1*, *2* හෝ *3* ලෙස reply (Quote) කරන්න.`
+                }, { quoted: msg });
+                return;
             }
 
             const cmd = text.trim().toLowerCase();
@@ -501,9 +466,15 @@ async function startBot() {
                         
                         tempFilePath = path.join(tempDir, downloadedFile);
 
+                        // Generate caption dynamically based on type
+                        let captionText = `🎥 *${title.replace(/-/g, ' ')}* (${height}p)`;
+                        if (pending.isSocial) {
+                            captionText = `🎥 *Downloaded from ${pending.platform}* (${height}p)`;
+                        }
+
                         await sock.sendMessage(from, {
                             video: { url: tempFilePath },
-                            caption: `🎥 *${title.replace(/-/g, ' ')}* (${height}p)`,
+                            caption: captionText,
                             mimetype: 'video/mp4'
                         }, { quoted: msg });
 
@@ -514,10 +485,14 @@ async function startBot() {
                         let errMsg = err.message;
                         if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
                             errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
+                        } else if (errMsg.includes('max-filesize')) {
+                            errMsg = "වීඩියෝව WhatsApp limit එකට වඩා විශාල වැඩිය. (Max size: 50MB)";
                         } else {
-                            errMsg = `MP4 download කිරීම අසාර්ථක විය. (Error: ${err.message})`;
+                            const platformLabel = pending.isSocial ? pending.platform : 'MP4';
+                            errMsg = `${platformLabel} download කිරීම අසාර්ථක විය. (Error: ${err.message})`;
                         }
                         await sock.sendMessage(from, { text: `❌ ${errMsg}` }, { quoted: msg });
+                        await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
                     } finally {
                         if (tempFilePath && fs.existsSync(tempFilePath)) {
                             try { fs.unlinkSync(tempFilePath); } catch (e) {}
