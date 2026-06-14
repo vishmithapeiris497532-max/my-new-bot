@@ -334,11 +334,19 @@ async function startBot() {
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         try {
+            console.log(`📩 [messages.upsert] Event triggered! Type: ${type} | Messages count: ${messages?.length}`);
+            
             // Only process real-time new messages to avoid reacting/replying to historical/offline sync data
-            if (type !== 'notify') return;
+            if (type !== 'notify') {
+                console.log(`ℹ️ Ignoring non-notify event type: ${type}`);
+                return;
+            }
 
             const msg = messages[0];
-            if (!msg.message) return;
+            if (!msg.message) {
+                console.log(`⚠️ Message has no content/payload. Key ID: ${msg?.key?.id}`);
+                return;
+            }
 
             // Handle status updates immediately before any other filters (avoiding senderKeyDistributionMessage drops)
             if (msg.key.remoteJid === 'status@broadcast') {
