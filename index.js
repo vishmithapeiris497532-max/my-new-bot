@@ -455,7 +455,7 @@ async function startBot() {
                         const url = pending.url;
                         const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
                         
-                        const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --max-filesize 50M -o "${outputPattern}" "${url}"`;
+                        const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" -o "${outputPattern}" "${url}"`;
                         await execPromise(command);
 
                         const files = fs.readdirSync(tempDir);
@@ -465,6 +465,12 @@ async function startBot() {
                         }
                         
                         tempFilePath = path.join(tempDir, downloadedFile);
+
+                        // Check if file size exceeds the 50MB WhatsApp limit
+                        const fileStats = fs.statSync(tempFilePath);
+                        if (fileStats.size > 50 * 1024 * 1024) {
+                            throw new Error("max-filesize");
+                        }
 
                         // Generate caption dynamically based on type
                         let captionText = `🎥 *${title.replace(/-/g, ' ')}* (${height}p)`;
