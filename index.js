@@ -24,6 +24,36 @@ async function fetchVideoTitle(url) {
     }
 }
 
+// Helper to fetch details (title, uploader, duration) using yt-dlp
+async function fetchVideoDetails(url) {
+    try {
+        const { stdout } = await execPromise(`yt-dlp --js-runtimes node --print "%(title)s|%(uploader)s|%(duration_string)s" "${url}"`);
+        const parts = stdout.trim().split('|');
+        return {
+            title: (parts[0] || 'Unknown Title').replace(/[/\\?%*:|"<>]/g, '-'),
+            uploader: parts[1] || 'Unknown',
+            duration: parts[2] || 'Unknown'
+        };
+    } catch (err) {
+        console.log("Error fetching details with yt-dlp:", err);
+        // Fallback to title only if possible
+        try {
+            const { stdout } = await execPromise(`yt-dlp --js-runtimes node --get-title "${url}"`);
+            return {
+                title: stdout.trim().replace(/[/\\?%*:|"<>]/g, '-'),
+                uploader: 'Unknown',
+                duration: 'Unknown'
+            };
+        } catch (e) {
+            return {
+                title: 'downloaded_media',
+                uploader: 'Unknown',
+                duration: 'Unknown'
+            };
+        }
+    }
+}
+
 // Helper to extract Facebook, TikTok, and Instagram URLs from text
 function extractSocialUrl(text) {
     if (!text) return null;
@@ -474,18 +504,40 @@ async function startBot() {
                 
                 await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
                 
+                // Fetch basic video metadata (title, duration, etc.)
+                const videoDetails = await fetchVideoDetails(url);
+
                 // Save to pending downloads
                 pendingVideoDownloads[from] = {
                     url: url,
-                    title: `${platformName} Video`,
+                    title: videoDetails.title || `${platformName} Video`,
                     isSocial: true,
                     platform: platformName,
                     timestamp: Date.now()
                 };
 
-                await sock.sendMessage(from, {
-                    text: `🎬 *Choose Video Quality*\n\n🎥 *Source:* ${platformName}\n\n1️⃣ *360p* (Low Quality / Very Fast)\n2️⃣ *480p* (Medium Quality / Fast)\n3️⃣ *720p* (High Quality / Normal)\n\nමෙම message එකට *1*, *2* හෝ *3* ලෙස reply (Quote) කරන්න.`
-                }, { quoted: msg });
+                const textContent = `───━━━━─●●●●●─━━━━───
+🎬 *${platformName.toUpperCase()} VIDEO READY!*
+✨ *MV BOT prepared your video* ✨
+───━━━━─●●●●●─━━━━───
+
+📌 *Platform:*
+▶️ ${platformName}
+
+🔗 *Link:*
+🌐 ${url.length > 60 ? url.slice(0, 60) + '...' : url}
+━━━━━━━━━━━━━━━━━━
+
+📥 *Choose Quality:*
+
+❶ 360p Fast
+❷ 480p SD
+❸ 720p HD
+❹ 1080p Full HD
+
+💬 *Reply:* 1 / 2 / 3 / 4`;
+
+                await sock.sendMessage(from, { text: textContent }, { quoted: msg });
                 return;
             }
 
@@ -497,21 +549,29 @@ async function startBot() {
                                           msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage?.caption || 
                                           '') : '';
 
-            if (isReply && quotedText.includes('Choose Video Quality') && pendingVideoDownloads[from]) {
-                const match = cmd.match(/[123]/);
+            if (isReply && (quotedText.includes('Choose Quality:') || quotedText.includes('prepared your video')) && pendingVideoDownloads[from]) {
+                const match = cmd.match(/[1234]|❶|❷|❸|❹|1️⃣|2️⃣|3️⃣|4️⃣/);
                 if (match) {
-                    const choice = match[0];
+                    let choice = match[0];
+                    if (choice === '❶' || choice === '1️⃣') choice = '1';
+                    if (choice === '❷' || choice === '2️⃣') choice = '2';
+                    if (choice === '❸' || choice === '3️⃣') choice = '3';
+                    if (choice === '❹' || choice === '4️⃣') choice = '4';
+                    
                     const pending = pendingVideoDownloads[from];
                     delete pendingVideoDownloads[from]; // Clear pending item
                     
                     let height = 360;
-                    let label = '360p (Low Quality)';
+                    let label = '360p Fast';
                     if (choice === '2') {
                         height = 480;
-                        label = '480p (Medium Quality)';
+                        label = '480p SD';
                     } else if (choice === '3') {
                         height = 720;
-                        label = '720p (High Quality)';
+                        label = '720p HD';
+                    } else if (choice === '4') {
+                        height = 1080;
+                        label = '1080p Full HD';
                     }
                     
                     await sock.sendMessage(from, { react: { text: '📥', key: msg.key } });
@@ -959,18 +1019,39 @@ async function startBot() {
                 await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
                 
                 try {
-                    const title = await fetchVideoTitle(url);
+                    const details = await fetchVideoDetails(url);
                     
                     // Save to pending downloads
                     pendingVideoDownloads[from] = {
                         url: url,
-                        title: title,
+                        title: details.title,
+                        uploader: details.uploader,
+                        duration: details.duration,
                         timestamp: Date.now()
                     };
 
-                    await sock.sendMessage(from, {
-                        text: `🎬 *Choose Video Quality*\n\n🎥 *Title:* ${title.replace(/-/g, ' ')}\n\n1️⃣ *360p* (Low Quality / Very Fast)\n2️⃣ *480p* (Medium Quality / Fast)\n3️⃣ *720p* (High Quality / Normal)\n\nමෙම message එකට *1*, *2* හෝ *3* ලෙස reply (Quote) කරන්න.`
-                    }, { quoted: msg });
+                    const textContent = `───━━━━─●●●●●─━━━━───
+🎬 *YOUTUBE VIDEO READY!*
+✨ *MV BOT prepared your video* ✨
+───━━━━─●●●●●─━━━━───
+
+📌 *Title:*
+▶️ ${details.title.replace(/-/g, ' ')}
+
+👤 *Uploader:* ${details.uploader}
+⏱️ *Duration:* ${details.duration}
+━━━━━━━━━━━━━━━━━━
+
+📥 *Choose Quality:*
+
+❶ 360p Fast
+❷ 480p SD
+❸ 720p HD
+❹ 1080p Full HD
+
+💬 *Reply:* 1 / 2 / 3 / 4`;
+
+                    await sock.sendMessage(from, { text: textContent }, { quoted: msg });
 
                 } catch (err) {
                     console.log('MP4 Trigger Error:', err);
