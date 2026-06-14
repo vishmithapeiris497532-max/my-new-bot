@@ -316,9 +316,12 @@ async function startBot() {
         auth: state,
         version: version,
         logger: pino({ level: 'silent' }),
-        keepAliveIntervalMs: 30000,          // Send a ping every 30 seconds
-        defaultQueryTimeoutMs: 60000,        // Timeout queries in 60 seconds
-        connectTimeoutMs: 60000             // Connection timeout in 60 seconds
+        browser: ['MV Bot', 'Chrome', '1.0.0'], // Mimic a stable browser to prevent security disconnects
+        syncFullHistory: false,                 // Do not sync old chats to save memory and CPU on Termux
+        keepAliveIntervalMs: 10000,             // Send a ping every 10 seconds to keep the socket alive on mobile sleep
+        defaultQueryTimeoutMs: 90000,           // Query timeout
+        connectTimeoutMs: 90000,                // Connection timeout
+        retryRequestDelayMs: 5000               // Delay before retrying failed requests
     });
 
     sock.ev.on('creds.update', saveCreds);
