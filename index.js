@@ -40,10 +40,10 @@ function extractSocialUrl(text) {
     return null;
 }
 
-// Helper to search Instagram profiles on DuckDuckGo
+// Helper to search Instagram profiles on Yahoo Search
 async function searchInstagramProfiles(query) {
     try {
-        const url = `https://html.duckduckgo.com/html/?q=site:instagram.com+${encodeURIComponent(query)}`;
+        const url = `https://search.yahoo.com/search?p=site:instagram.com+${encodeURIComponent(query)}`;
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -51,56 +51,62 @@ async function searchInstagramProfiles(query) {
         });
         const data = await response.text();
 
+        function cleanText(text) {
+            if (!text) return '';
+            return text.replace(/<[^>]*>/g, '').replace(/&bull;/gi, '•').replace(/&quot;/gi, '"').replace(/\s+/g, ' ').trim();
+        }
+
+        const blocks = data.split(/<div class="dd\s[^"]*algo-sr/gi);
         const results = [];
-        const linkRegex = /class="result__snippet"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-        const snipRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
-        
-        const links = [];
-        let match;
-        while ((match = linkRegex.exec(data)) !== null) {
-            let href = match[1];
-            let title = match[2].replace(/<[^>]*>/g, '').trim();
+        const ignored = ['p', 'reel', 'tv', 'stories', 'explore', 'developer', 'about', 'directory', 'legal_policy'];
+        const seenUsernames = new Set();
+
+        for (let i = 1; i < blocks.length; i++) {
+            const block = blocks[i];
             
-            if (href.includes('uddg=')) {
-                try {
-                    const urlObj = new URL(href, 'https://duckduckgo.com');
-                    href = urlObj.searchParams.get('uddg') || href;
-                } catch (e) {
-                    const urlParams = new URLSearchParams(href.split('?')[1]);
-                    href = urlParams.get('uddg') || href;
-                }
+            // Find Instagram URL inside RU parameter of Yahoo redirection link
+            const ruMatch = block.match(/RU=(https?%3a%2f%2f(www\.)?instagram\.com%2f[^/&"]+)/i);
+            if (!ruMatch) continue;
+            
+            let rawUrl = decodeURIComponent(ruMatch[1]);
+            let cleanUrl = rawUrl.split('?')[0];
+            if (cleanUrl.endsWith('/')) {
+                cleanUrl = cleanUrl.slice(0, -1);
             }
             
-            if (href.includes('instagram.com/')) {
-                const usernameMatch = href.match(/instagram\.com\/([a-zA-Z0-9_\.]+)/);
-                if (usernameMatch) {
-                    const username = usernameMatch[1];
-                    if (!['p', 'reel', 'tv', 'stories', 'explore', 'developer', 'about', 'directory', 'legal_policy'].includes(username)) {
-                        links.push({
-                            username,
-                            url: `https://www.instagram.com/${username}`,
-                            title
-                        });
-                    }
-                }
-            }
-        }
-        
-        const snippets = [];
-        while ((match = snipRegex.exec(data)) !== null) {
-            snippets.push(match[1].replace(/<[^>]*>/g, '').trim());
-        }
-        
-        for (let i = 0; i < Math.min(links.length, 5); i++) {
+            // Extract username
+            const usernameMatch = cleanUrl.match(/instagram\.com\/([a-zA-Z0-9_\.]+)/);
+            if (!usernameMatch) continue;
+            
+            const username = usernameMatch[1];
+            if (ignored.includes(username.toLowerCase())) continue;
+            if (seenUsernames.has(username.toLowerCase())) continue;
+            seenUsernames.add(username.toLowerCase());
+            
+            // Extract Title
+            const titleMatch = block.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i);
+            let title = cleanText(titleMatch ? titleMatch[1] : 'Instagram Profile');
+            // Clean Yahoo-specific title suffixes
+            title = title.replace(/\s*[•-]\s*Instagram\s*photos\s*and\s*videos/gi, '')
+                         .replace(/\s*[•-]\s*Instagram\s*photos\s*and\s*\.\.\./gi, '')
+                         .replace(/\s*[•-]\s*Instagram\s*photos\s*\.\.\./gi, '')
+                         .replace(/\s*[•-]\s*Instagram\s*profile/gi, '')
+                         .replace(/\s*-\s*Instagram/gi, '')
+                         .trim();
+                         
+            // Extract Snippet
+            const snippetMatch = block.match(/<div class="compText[^>]*>([\s\S]*?)<\/div>/i);
+            let snippet = cleanText(snippetMatch ? snippetMatch[1] : 'No description available.');
+            
             results.push({
-                username: links[i].username,
-                title: links[i].title,
-                url: links[i].url,
-                snippet: snippets[i] || 'No description available.'
+                username,
+                title,
+                url: cleanUrl,
+                snippet
             });
         }
         
-        return results;
+        return results.slice(0, 5);
     } catch (err) {
         console.log("Instagram Search Error:", err.message);
         return [];
