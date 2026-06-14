@@ -58,13 +58,13 @@ async function fetchVideoDetails(url) {
 function extractSocialUrl(text) {
     if (!text) return null;
     
-    const fbMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?facebook\.com\/(?:[^\s\/]+\/videos\/|video\.php\?v=)[^\s]+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?fb\.watch\/[^\s]+/i);
+    const fbMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?facebook\.com\/(?:[^\s\/]+\/videos\/|video\.php\?v=|share\/[rvp]\/|reel\/|reels\/|watch\/?[^\s\/]*)[^\s]+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?fb\.watch\/[^\s]+/i);
     if (fbMatch) return { type: 'facebook', url: fbMatch[0] };
     
-    const tiktokMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?tiktok\.com\/@[^\s\/]+\/video\/\d+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?vm\.tiktok\.com\/[^\s\/]+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?vt\.tiktok\.com\/[^\s\/]+/i);
+    const tiktokMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?tiktok\.com\/@[^\s\/]+\/video\/\d+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?tiktok\.com\/t\/[^\s\/]+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?vm\.tiktok\.com\/[^\s\/]+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?vt\.tiktok\.com\/[^\s\/]+/i);
     if (tiktokMatch) return { type: 'tiktok', url: tiktokMatch[0] };
     
-    const igMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?instagram\.com\/(?:p|reel|tv)\/[^\s\/]+/i);
+    const igMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?instagram\.com\/(?:p|reel|reels|tv|share\/reel)\/[^\s\/]+/i);
     if (igMatch) return { type: 'instagram', url: igMatch[0] };
     
     return null;
