@@ -66,6 +66,25 @@ function getReferer(url) {
     return '';
 }
 
+// Helper to download TikTok video using Tikwm API
+async function downloadTikTokVideo(url, tempFilePath) {
+    try {
+        const response = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`);
+        const result = await response.json();
+        if (result.code === 0 && result.data && result.data.play) {
+            const videoUrl = result.data.play;
+            const videoResponse = await fetch(videoUrl);
+            const arrayBuffer = await videoResponse.arrayBuffer();
+            fs.writeFileSync(tempFilePath, Buffer.from(arrayBuffer));
+            return true;
+        }
+        throw new Error(result.msg || "API returned failure status");
+    } catch (err) {
+        console.log("Tikwm API Download failed, falling back to yt-dlp:", err.message);
+        return false;
+    }
+}
+
 // Helper to search Instagram profiles on Yahoo Search
 async function searchInstagramProfiles(query) {
     try {
@@ -483,24 +502,36 @@ async function startBot() {
                         // Resolve short links first to avoid 403 redirect blocks
                         url = await resolveRedirectUrl(url);
 
-                        const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
-                        
-                        let refererFlag = '';
-                        const referer = getReferer(url);
-                        if (referer) {
-                            refererFlag = `--referer "${referer}"`;
+                        let downloaded = false;
+                        tempFilePath = path.join(tempDir, `video_${uniqueId}.mp4`);
+
+                        // Try direct Tikwm API download for TikTok videos
+                        if (pending.isSocial && pending.platform.toLowerCase() === 'tiktok') {
+                            console.log("Attempting TikTok download via Tikwm API...");
+                            downloaded = await downloadTikTokVideo(url, tempFilePath);
                         }
 
-                        const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" ${refererFlag} -o "${outputPattern}" "${url}"`;
-                        await execPromise(command);
+                        if (!downloaded) {
+                            console.log("Downloading via yt-dlp...");
+                            const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
+                            
+                            let refererFlag = '';
+                            const referer = getReferer(url);
+                            if (referer) {
+                                refererFlag = `--referer "${referer}"`;
+                            }
 
-                        const files = fs.readdirSync(tempDir);
-                        const downloadedFile = files.find(f => f.startsWith(`video_${uniqueId}.`));
-                        if (!downloadedFile) {
-                            throw new Error("Downloaded video file not found");
+                            const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" ${refererFlag} -o "${outputPattern}" "${url}"`;
+                            await execPromise(command);
+
+                            const files = fs.readdirSync(tempDir);
+                            const downloadedFile = files.find(f => f.startsWith(`video_${uniqueId}.`));
+                            if (!downloadedFile) {
+                                throw new Error("Downloaded video file not found");
+                            }
+                            
+                            tempFilePath = path.join(tempDir, downloadedFile);
                         }
-                        
-                        tempFilePath = path.join(tempDir, downloadedFile);
 
                         // Check if file size exceeds the 50MB WhatsApp limit
                         const fileStats = fs.statSync(tempFilePath);
