@@ -40,6 +40,32 @@ function extractSocialUrl(text) {
     return null;
 }
 
+// Helper to resolve redirect URLs (e.g. short links like vm.tiktok.com, fb.watch, etc.)
+async function resolveRedirectUrl(url) {
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            redirect: 'follow'
+        });
+        return response.url || url;
+    } catch (err) {
+        console.log("Error resolving redirect URL:", err.message);
+        return url;
+    }
+}
+
+// Helper to get Referer based on the URL type
+function getReferer(url) {
+    if (url.includes('tiktok.com')) return 'https://www.tiktok.com/';
+    if (url.includes('instagram.com')) return 'https://www.instagram.com/';
+    if (url.includes('facebook.com') || url.includes('fb.watch')) return 'https://www.facebook.com/';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'https://www.youtube.com/';
+    return '';
+}
+
 // Helper to search Instagram profiles on Yahoo Search
 async function searchInstagramProfiles(query) {
     try {
@@ -452,10 +478,20 @@ async function startBot() {
                     const uniqueId = Date.now();
                     try {
                         const title = pending.title;
-                        const url = pending.url;
+                        let url = pending.url;
+                        
+                        // Resolve short links first to avoid 403 redirect blocks
+                        url = await resolveRedirectUrl(url);
+
                         const outputPattern = path.join(tempDir, `video_${uniqueId}.%(ext)s`);
                         
-                        const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" -o "${outputPattern}" "${url}"`;
+                        let refererFlag = '';
+                        const referer = getReferer(url);
+                        if (referer) {
+                            refererFlag = `--referer "${referer}"`;
+                        }
+
+                        const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" ${refererFlag} -o "${outputPattern}" "${url}"`;
                         await execPromise(command);
 
                         const files = fs.readdirSync(tempDir);
@@ -786,11 +822,20 @@ async function startBot() {
                 let tempFilePath = '';
                 const uniqueId = Date.now();
                 try {
+                    // Resolve redirect if any
+                    url = await resolveRedirectUrl(url);
+
                     const title = await fetchVideoTitle(url);
                     const outputPattern = path.join(tempDir, `audio_${uniqueId}.%(ext)s`);
                     
+                    let refererFlag = '';
+                    const referer = getReferer(url);
+                    if (referer) {
+                        refererFlag = `--referer "${referer}"`;
+                    }
+
                     // Download best audio format (prefers m4a to avoid needing ffmpeg to convert webm to mp3/m4a if not installed)
-                    const command = `yt-dlp --js-runtimes node -f "ba[ext=m4a]/ba" --max-filesize 15M -o "${outputPattern}" "${url}"`;
+                    const command = `yt-dlp --js-runtimes node -f "ba[ext=m4a]/ba" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" ${refererFlag} -o "${outputPattern}" "${url}"`;
                     await execPromise(command);
 
                     // Find the downloaded file
@@ -801,6 +846,12 @@ async function startBot() {
                     }
                     
                     tempFilePath = path.join(tempDir, downloadedFile);
+
+                    // Check file size limit (15MB for MP3)
+                    const fileStats = fs.statSync(tempFilePath);
+                    if (fileStats.size > 15 * 1024 * 1024) {
+                        throw new Error("max-filesize");
+                    }
 
                     // Send downloaded audio file with mp3 filename for compatibility
                     await sock.sendMessage(from, {
@@ -816,6 +867,8 @@ async function startBot() {
                     let errMsg = err.message;
                     if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
                         errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
+                    } else if (errMsg.includes('max-filesize')) {
+                        errMsg = "ඕඩියෝ ගොනුව WhatsApp limit එකට වඩා විශාල වැඩිය. (Max size: 15MB)";
                     } else {
                         errMsg = `MP3 download කිරීම අසාර්ථක විය. (Error: ${err.message})`;
                     }
