@@ -215,6 +215,7 @@ function addToHistory(from, role, text) {
 }
 
 let sock = null;
+let isReconnecting = false;
 
 async function startBot() {
     // Dynamically import ES Module @whiskeysockets/baileys
@@ -326,11 +327,33 @@ async function startBot() {
             const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode;
             console.log('Connection closed. Status code:', statusCode, 'Error:', lastDisconnect?.error);
 
+            // Clean up the closed socket's event listeners immediately to prevent multiple close events triggering multiple startBot calls
+            if (sock) {
+                try {
+                    sock.ev.removeAllListeners('connection.update');
+                    sock.ev.removeAllListeners('creds.update');
+                    sock.ev.removeAllListeners('messages.upsert');
+                    sock.ev.removeAllListeners('group-participants.update');
+                    if (sock.ws) sock.ws.close();
+                } catch (e) {
+                    console.log('Error cleaning up closed socket:', e);
+                }
+                sock = null;
+            }
+
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
             if (shouldReconnect) {
-                console.log('🔄 Reconnecting in 5 seconds...');
-                setTimeout(startBot, 5000);
+                if (!isReconnecting) {
+                    isReconnecting = true;
+                    console.log('🔄 Reconnecting in 5 seconds...');
+                    setTimeout(async () => {
+                        isReconnecting = false;
+                        await startBot();
+                    }, 5000);
+                } else {
+                    console.log('ℹ️ Reconnection already scheduled, ignoring duplicate close event.');
+                }
             } else {
                 console.log('❌ Bot logged out. Clearing session and restarting to generate new QR...');
                 try {
@@ -338,7 +361,13 @@ async function startBot() {
                 } catch (e) {
                     console.log('Error deleting baileys_auth folder:', e);
                 }
-                setTimeout(startBot, 5000);
+                if (!isReconnecting) {
+                    isReconnecting = true;
+                    setTimeout(async () => {
+                        isReconnecting = false;
+                        await startBot();
+                    }, 5000);
+                }
             }
         }
     });
