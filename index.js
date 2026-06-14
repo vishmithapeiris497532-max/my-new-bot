@@ -24,6 +24,89 @@ async function fetchVideoTitle(url) {
     }
 }
 
+// Helper to extract Facebook, TikTok, and Instagram URLs from text
+function extractSocialUrl(text) {
+    if (!text) return null;
+    
+    const fbMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?facebook\.com\/(?:[^\s\/]+\/videos\/|video\.php\?v=)[^\s]+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?fb\.watch\/[^\s]+/i);
+    if (fbMatch) return { type: 'facebook', url: fbMatch[0] };
+    
+    const tiktokMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?tiktok\.com\/@[^\s\/]+\/video\/\d+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?vm\.tiktok\.com\/[^\s\/]+|https?:\/\/(?:[a-zA-Z0-9-]+\.)?vt\.tiktok\.com\/[^\s\/]+/i);
+    if (tiktokMatch) return { type: 'tiktok', url: tiktokMatch[0] };
+    
+    const igMatch = text.match(/https?:\/\/(?:[a-zA-Z0-9-]+\.)?instagram\.com\/(?:p|reel|tv)\/[^\s\/]+/i);
+    if (igMatch) return { type: 'instagram', url: igMatch[0] };
+    
+    return null;
+}
+
+// Helper to search Instagram profiles on DuckDuckGo
+async function searchInstagramProfiles(query) {
+    try {
+        const url = `https://html.duckduckgo.com/html/?q=site:instagram.com+${encodeURIComponent(query)}`;
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
+        const data = await response.text();
+
+        const results = [];
+        const linkRegex = /class="result__snippet"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+        const snipRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
+        
+        const links = [];
+        let match;
+        while ((match = linkRegex.exec(data)) !== null) {
+            let href = match[1];
+            let title = match[2].replace(/<[^>]*>/g, '').trim();
+            
+            if (href.includes('uddg=')) {
+                try {
+                    const urlObj = new URL(href, 'https://duckduckgo.com');
+                    href = urlObj.searchParams.get('uddg') || href;
+                } catch (e) {
+                    const urlParams = new URLSearchParams(href.split('?')[1]);
+                    href = urlParams.get('uddg') || href;
+                }
+            }
+            
+            if (href.includes('instagram.com/')) {
+                const usernameMatch = href.match(/instagram\.com\/([a-zA-Z0-9_\.]+)/);
+                if (usernameMatch) {
+                    const username = usernameMatch[1];
+                    if (!['p', 'reel', 'tv', 'stories', 'explore', 'developer', 'about', 'directory', 'legal_policy'].includes(username)) {
+                        links.push({
+                            username,
+                            url: `https://www.instagram.com/${username}`,
+                            title
+                        });
+                    }
+                }
+            }
+        }
+        
+        const snippets = [];
+        while ((match = snipRegex.exec(data)) !== null) {
+            snippets.push(match[1].replace(/<[^>]*>/g, '').trim());
+        }
+        
+        for (let i = 0; i < Math.min(links.length, 5); i++) {
+            results.push({
+                username: links[i].username,
+                title: links[i].title,
+                url: links[i].url,
+                snippet: snippets[i] || 'No description available.'
+            });
+        }
+        
+        return results;
+    } catch (err) {
+        console.log("Instagram Search Error:", err.message);
+        return [];
+    }
+}
+
 // Split keys by comma to support multi-key rotation
 const apiKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
 let currentKeyIndex = 0;
@@ -40,13 +123,7 @@ Keep your responses neat, well-structured, relatively short (suitable for quick 
     });
 }
 
-const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason,
-    fetchLatestBaileysVersion,
-    jidNormalizedUser
-} = require('@whiskeysockets/baileys');
+let makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser;
 
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
@@ -89,6 +166,15 @@ function addToHistory(from, role, text) {
 let sock = null;
 
 async function startBot() {
+    // Dynamically import ES Module @whiskeysockets/baileys
+    if (!makeWASocket) {
+        const baileys = await import('@whiskeysockets/baileys');
+        makeWASocket = baileys.default || baileys.default?.default || baileys;
+        useMultiFileAuthState = baileys.useMultiFileAuthState;
+        DisconnectReason = baileys.DisconnectReason;
+        fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+        jidNormalizedUser = baileys.jidNormalizedUser;
+    }
     // Prevent duplicate active socket instances
     if (sock) {
         console.log('🧹 Cleaning up previous socket instance...');
@@ -292,6 +378,64 @@ async function startBot() {
             // Log incoming messages for debugging
             console.log(`✉️ Message received from: ${from.split('@')[0]} | Text: "${text}"`);
 
+            // CHECK FOR AUTO-DOWNLOAD OF FACEBOOK, TIKTOK, AND INSTAGRAM LINKS
+            const socialMediaMatch = extractSocialUrl(text);
+            if (socialMediaMatch) {
+                const { type, url } = socialMediaMatch;
+                const platformName = type.charAt(0).toUpperCase() + type.slice(1);
+                
+                await sock.sendMessage(from, { react: { text: '📥', key: msg.key } });
+                await sock.sendMessage(from, { text: `⏳ *${platformName}* video එක download වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...` }, { quoted: msg });
+
+                const tempDir = path.join(__dirname, 'temp');
+                if (!fs.existsSync(tempDir)) {
+                    fs.mkdirSync(tempDir);
+                }
+
+                let tempFilePath = '';
+                const uniqueId = Date.now();
+                try {
+                    const outputPattern = path.join(tempDir, `social_${uniqueId}.%(ext)s`);
+                    
+                    const command = `yt-dlp --js-runtimes node -f "best[height<=480][ext=mp4]/best[ext=mp4]/best" --max-filesize 50M -o "${outputPattern}" "${url}"`;
+                    await execPromise(command);
+
+                    const files = fs.readdirSync(tempDir);
+                    const downloadedFile = files.find(f => f.startsWith(`social_${uniqueId}.`));
+                    if (!downloadedFile) {
+                        throw new Error("Downloaded file not found");
+                    }
+                    
+                    tempFilePath = path.join(tempDir, downloadedFile);
+
+                    await sock.sendMessage(from, {
+                        video: { url: tempFilePath },
+                        caption: `🎥 *Downloaded from ${platformName}*`,
+                        mimetype: 'video/mp4'
+                    }, { quoted: msg });
+
+                    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+                } catch (err) {
+                    console.log(`${platformName} Downloader Error:`, err);
+                    let errMsg = err.message;
+                    if (errMsg.includes('not found') || errMsg.includes('127') || errMsg.includes('ENOENT')) {
+                        errMsg = "yt-dlp command එක Termux එකේ ස්ථාපනය කර නැත.\n\nකරුණාකර Termux එකට ගොස් පහත command එක run කරන්න:\n`pkg install python ffmpeg -y && pip install yt-dlp`";
+                    } else if (errMsg.includes('max-filesize')) {
+                        errMsg = "වීඩියෝව WhatsApp limit එකට වඩා විශාල වැඩිය. (Max size: 50MB)";
+                    } else {
+                        errMsg = `${platformName} download කිරීම අසාර්ථක විය. (Link එක private එකක් විය හැක හෝ error එකක් සිදු විය)`;
+                    }
+                    await sock.sendMessage(from, { text: `❌ ${errMsg}` }, { quoted: msg });
+                    await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
+                } finally {
+                    if (tempFilePath && fs.existsSync(tempFilePath)) {
+                        try { fs.unlinkSync(tempFilePath); } catch (e) {}
+                    }
+                }
+                return; 
+            }
+
             const cmd = text.trim().toLowerCase();
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -383,7 +527,7 @@ async function startBot() {
             }
 
             // Define known command prefixes to avoid Auto-AI hijacking standard command words
-            const commands = ['hi', 'hello', 'hey', 'kohomada', 'කොහොමද', 'mama hodin', 'මම හොඳින්', 'මමත් හොඳින්', 'මමත් හොදින්', 'love you', 'i love you', 'ආදරෙයි', 'good morning', 'සුභ උදෑසනක්', 'gm', 'thanks', 'thank you', 'ස්තුතියි', 'bye', 'good bye', 'ගිහින් එන්නම්', 'good night', 'සුභ රාත්රියක්', 'gn', 'gn bs', 'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai', '.mp3', '.mp4', 'mp3', 'mp4'];
+            const commands = ['hi', 'hello', 'hey', 'kohomada', 'කොහොමද', 'mama hodin', 'මම හොඳින්', 'මමත් හොඳින්', 'මමත් හොදින්', 'love you', 'i love you', 'ආදරෙයි', 'good morning', 'සුභ උදෑසනක්', 'gm', 'thanks', 'thank you', 'ස්තුතියි', 'bye', 'good bye', 'ගිහින් එන්නම්', 'good night', 'සුභ රාත්රියක්', 'gn', 'gn bs', 'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai', '.mp3', '.mp4', 'mp3', 'mp4', 'ig ', 'ig'];
             const isCommand = commands.some(c => cmd.startsWith(c));
 
             // HI
@@ -525,24 +669,66 @@ async function startBot() {
 ➤ Song <song name>
 ➤ Video <video name>
 
+📥 Social Downloaders (Auto-Download)
+➤ Facebook Video Link
+➤ TikTok Video Link
+➤ Instagram Reel Link
+
+🔍 Instagram Search
+➤ ig <username/name>
+
 👥 Group Features
 ➤ Auto Welcome 👋
 
 ━━━━━━━━━━━━━━━━━━
 👑 Owner : MV PRODUCTION
 📱 WhatsApp : +94 784291630
-🚀 Version : 1.2
+🚀 Version : 1.3
 🟢 Status : Online
 ━━━━━━━━━━━━━━━━━━
 
 🔥 Fast Replies
 ❤️ Status React
-🎵 YouTube Search
-👋 Group Welcome
+🎵 Media Downloaders
+🔍 Profile Search
 🧠 Smart Gemini AI Chatbot
 
 ▄︻デ══━一💥`
                 }, { quoted: msg });
+            }
+            // INSTAGRAM PROFILE SEARCH
+            else if (cmd.startsWith('ig ') || cmd === 'ig') {
+                await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
+                const query = text.slice(3).trim();
+
+                if (!query) {
+                    return await sock.sendMessage(from, { text: '❌ කරුණාකර සෙවිය යුතු නම හෝ username එක ලබා දෙන්න. (උදා: ig vishmitha)' }, { quoted: msg });
+                }
+
+                await sock.sendMessage(from, { text: `🔍 Instagram හි *"${query}"* සොයමින් පවතී. කරුණාකර රැඳී සිටින්න...` }, { quoted: msg });
+
+                try {
+                    const profiles = await searchInstagramProfiles(query);
+                    if (profiles.length === 0) {
+                        return await sock.sendMessage(from, { text: '❌ කිසිදු Instagram Profile එකක් හමු නොවුණි.' }, { quoted: msg });
+                    }
+
+                    let responseText = `🔍 *Instagram Search Results for: ${query}*\n\n`;
+                    profiles.forEach((profile, index) => {
+                        responseText += `${index + 1}️⃣ *Name:* ${profile.title}\n`;
+                        responseText += `   🔗 *Link:* ${profile.url}\n`;
+                        responseText += `   📝 *Bio:* ${profile.snippet}\n\n`;
+                    });
+
+                    responseText += `💡 *Tip:* වීඩියෝවක් ඩවුන්ලෝඩ් කිරීමට Reel/Video Link එක කෙලින්ම chat එකට එවන්න.`;
+
+                    await sock.sendMessage(from, { text: responseText }, { quoted: msg });
+                    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+                } catch (err) {
+                    console.log("Instagram Command Error:", err);
+                    await sock.sendMessage(from, { text: `❌ සෙවීම අසාර්ථක විය. (Error: ${err.message})` }, { quoted: msg });
+                }
             }
             // SONG
             else if (cmd.startsWith('song ') || cmd.startsWith('video ')) {
@@ -784,13 +970,13 @@ async function startBot() {
 
 startBot();
 
-// Tiny HTTP server to satisfy Koyeb/Render port health checks
+// Tiny HTTP server to satisfy Hugging Face/Koyeb/Render port health checks
 const http = require('http');
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 7860;
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('MV Bot is running successfully!\n');
 });
-server.listen(port, () => {
+server.listen(port, '0.0.0.0', () => {
     console.log(`📡 HTTP Health check server listening on port ${port}`);
 });
