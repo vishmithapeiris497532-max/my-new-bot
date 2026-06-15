@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const startTime = Date.now();
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -787,66 +788,96 @@ async function startBot() {
             // MENU
             else if (cmd === 'menu') {
                 await sock.sendMessage(from, { react: { text: '📋', key: msg.key } });
-                await sock.sendMessage(from, {
-                    text:
-`╔════════════════════╗
-            🤖 MV BOT 0.V4M2
-╚════════════════════╝
+                
+                // Get dynamic sender name (pushName)
+                const userName = msg.pushName || 'User';
+                
+                // Get dynamic date & time formatted for Sri Lanka
+                const dateObj = new Date();
+                const date = dateObj.toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
+                const time = dateObj.toLocaleTimeString('en-US', { hour12: false, timeZone: 'Asia/Colombo' });
+                
+                // Calculate latency
+                const msgTimestamp = msg.messageTimestamp * 1000 || Date.now();
+                const latency = Math.max(0, Date.now() - msgTimestamp);
+                
+                // Calculate uptime
+                const uptimeMs = Date.now() - startTime;
+                const uptimeSec = Math.floor(uptimeMs / 1000);
+                const uptimeMin = Math.floor(uptimeSec / 60);
+                const uptimeHours = Math.floor(uptimeMin / 60);
+                const uptimeDays = Math.floor(uptimeHours / 24);
+                
+                let uptimeStr = '';
+                if (uptimeDays > 0) uptimeStr += `${uptimeDays}d `;
+                if (uptimeHours > 0) uptimeStr += `${uptimeHours % 24}h `;
+                if (uptimeMin > 0) uptimeStr += `${uptimeMin % 60}m `;
+                uptimeStr += `${uptimeSec % 60}s`;
 
-👋 General Commands
-➤ Hi / Hello / Hey
-➤ Kohomada (කොහොමද)
-➤ Mama Hodin (මම හොඳින්)
-➤ Love you / ආදරෙයි
-➤ Good morning / GM
-➤ Good night / GN
-➤ Thank you / ස්තුතියි
-➤ Bye / ගිහින් එන්නම්
+                const menuText = `╭───────────────────╮
+│ 🌸 *Hello ${userName}...!* 🌸
+│ 🌷 *Welcome to MV BOT Menu* ✨
+╰───────────────────╯
 
-😂 Fun Commands
-➤ Joke
-
-⚡ Utility Commands
-➤ Ping
-➤ Menu
-➤ Owner
-➤ Alive
-
-🤖 AI Chatbot Features
-➤ ai <ප්‍රශ්නය> (Ask Gemini AI)
-➤ autoai on (Enable Auto-AI in DMs)
-➤ autoai off (Disable Auto-AI in DMs)
-
-🎵 YouTube Search
-➤ Song <song name>
-➤ Video <video name>
-
-📥 Social Downloaders (Auto-Download)
-➤ Facebook Video Link
-➤ TikTok Video Link
-➤ Instagram Reel Link
-
-🔍 Instagram Search
-➤ ig <username/name>
-
-👥 Group Features
-➤ Auto Welcome 👋
-
-━━━━━━━━━━━━━━━━━━
-👑 Owner : MV PRODUCTION
-📱 WhatsApp : +94 784291630
-🚀 Version : 1.3
-🟢 Status : Online
+📅 *Date:* ${date}
+⌚ *Time:* ${time}
 ━━━━━━━━━━━━━━━━━━
 
-🔥 Fast Replies
-❤️ Status React
-🎵 Media Downloaders
-🔍 Profile Search
-🧠 Smart Gemini AI Chatbot
+╭───〔 SYSTEM STATS 〕───*
+│ 👑 *Owner* : Vishmitha
+│ ⚙️ *Mode* : PUBLIC
+│ ⏱️ *Uptime* : ${uptimeStr}
+│ 🚀 *Latency* : ${latency}ms
+│ 🤖 *Version* : 1.3
+╰━━━━━━━━━━━━━━━━━━*
 
-▄︻デ══━一💥`
-                }, { quoted: msg });
+╭───〔 💬 GENERAL 〕───*
+│ ➣ Hi / Hello / Hey
+│ ➣ Kohomada (කොහොමද)
+│ ➣ Mama Hodin (මම හොඳින්)
+│ ➣ Love you / ආදරෙයි
+│ ➣ Good morning / GM
+│ ➣ Good night / GN
+│ ➣ Thank you / ස්තුතියි
+│ ➣ Bye / ගිහින් එන්නම්
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🎭 FUN 〕───*
+│ ➣ Joke (පට්ට කතා)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🛠️ UTILITY 〕───*
+│ ➣ Ping (වේගය පරීක්ෂා කරන්න)
+│ ➣ Menu (ප්‍රධාන ලැයිස්තුව)
+│ ➣ Owner (හිමිකරු)
+│ ➣ Alive (තවමත් ක්‍රියාකාරීද?)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🧠 GEMINI AI 〕───*
+│ ➣ ai <ප්‍රශ්නය> (Gemini AIගෙන් අසන්න)
+│ ➣ autoai on (Auto AI සක්‍රීය කරන්න)
+│ ➣ autoai off (Auto AI අක්‍රීය කරන්න)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🎵 YOUTUBE 〕───*
+│ ➣ Song <නම> (සින්දු බාගන්න)
+│ ➣ Video <නම> (වීඩියෝ බාගන්න)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 📥 DOWNLOADS 〕───*
+│ ➣ Auto Downloader for:
+│   - Facebook Video
+│   - TikTok Video
+│   - Instagram Reel
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🔍 SEARCH 〕───*
+│ ➣ ig <username> (Instagram Profile)
+╰━━━━━━━━━━━━━━━━━━*
+
+© mv bot`;
+
+                await sock.sendMessage(from, { text: menuText }, { quoted: msg });
             }
             // INSTAGRAM PROFILE SEARCH
             else if (cmd.startsWith('ig ') || cmd === 'ig') {
