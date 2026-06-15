@@ -877,7 +877,27 @@ async function startBot() {
 
 © mv bot`;
 
-                await sock.sendMessage(from, { text: menuText }, { quoted: msg });
+                // Check if a logo image exists locally or via environment variables
+                const localLogoJpg = path.join(__dirname, 'logo.jpg');
+                const localLogoPng = path.join(__dirname, 'logo.png');
+                const localLogoJpeg = path.join(__dirname, 'logo.jpeg');
+                let logoSource = null;
+
+                if (fs.existsSync(localLogoJpg)) {
+                    logoSource = { url: localLogoJpg };
+                } else if (fs.existsSync(localLogoPng)) {
+                    logoSource = { url: localLogoPng };
+                } else if (fs.existsSync(localLogoJpeg)) {
+                    logoSource = { url: localLogoJpeg };
+                } else if (process.env.MENU_LOGO_URL) {
+                    logoSource = { url: process.env.MENU_LOGO_URL };
+                }
+
+                if (logoSource) {
+                    await sock.sendMessage(from, { image: logoSource, caption: menuText }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: menuText }, { quoted: msg });
+                }
             }
             // INSTAGRAM PROFILE SEARCH
             else if (cmd.startsWith('ig ') || cmd === 'ig') {
