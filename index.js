@@ -82,13 +82,17 @@ function extractSocialUrl(text) {
 // Helper to resolve redirect URLs (e.g. short links like vm.tiktok.com, fb.watch, etc.)
 async function resolveRedirectUrl(url) {
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             },
-            redirect: 'follow'
+            redirect: 'follow',
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
         return response.url || url;
     } catch (err) {
         console.log("Error resolving redirect URL:", err.message);
@@ -108,12 +112,21 @@ function getReferer(url) {
 // Helper to download TikTok video using Tikwm API
 async function downloadTikTokVideo(url, tempFilePath) {
     try {
-        const response = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        const response = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         const result = await response.json();
         if (result.code === 0 && result.data && result.data.play) {
             const videoUrl = result.data.play;
-            const videoResponse = await fetch(videoUrl);
+            
+            const videoController = new AbortController();
+            const videoTimeoutId = setTimeout(() => videoController.abort(), 60000);
+            const videoResponse = await fetch(videoUrl, { signal: videoController.signal });
             const arrayBuffer = await videoResponse.arrayBuffer();
+            clearTimeout(videoTimeoutId);
+            
             fs.writeFileSync(tempFilePath, Buffer.from(arrayBuffer));
             return true;
         }
@@ -128,11 +141,15 @@ async function downloadTikTokVideo(url, tempFilePath) {
 async function searchInstagramProfiles(query) {
     try {
         const url = `https://search.yahoo.com/search?p=site:instagram.com+${encodeURIComponent(query)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
+            },
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
         const data = await response.text();
 
         function cleanText(text) {
@@ -558,14 +575,11 @@ async function startBot() {
                         // Mark the status as read/viewed
                         await sock.readMessages([msg.key]);
 
-                        // Send a direct quoted reply with '✨💗' to status creator
+                        // Send a direct reply with '✨💗' to status creator (unquoted to avoid E2E decryption error on mobile phone)
                         await sock.sendMessage(
                             participant,
                             {
                                 text: '✨💗'
-                            },
-                            {
-                                quoted: msg
                             }
                         );
                         console.log(`👀 Status viewed and replied with ✨💗 to: ${participant.split('@')[0]}`);
@@ -820,7 +834,9 @@ async function startBot() {
             // PING
             else if (cmd.includes('ping')) { 
                 await sock.sendMessage(from, { react: { text: '🏓', key: msg.key } });
-                await sock.sendMessage(from, { text: 'pong 🏓' }, { quoted: msg });
+                const msgTimestamp = msg.messageTimestamp * 1000 || Date.now();
+                const latency = Math.max(0, Date.now() - msgTimestamp);
+                await sock.sendMessage(from, { text: `Pong! 🏓\n\n⚡ *Response Speed:* ${latency}ms` }, { quoted: msg });
             }
             // OWNER
             else if (cmd.includes('owner')) {
