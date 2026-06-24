@@ -7,6 +7,14 @@ const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 
+// GLOBAL ERROR HANDLERS to prevent process crash
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception thrown:', err);
+});
+
 // Helper to extract YouTube URL from text
 function extractYoutubeUrl(text) {
     if (!text) return null;
@@ -289,22 +297,29 @@ async function startBot() {
     }
 
     let state, saveCreds;
+    const authPath = path.join(__dirname, 'baileys_auth');
     try {
-        const authResult = await useMultiFileAuthState('./baileys_auth');
+        const credsPath = path.join(authPath, 'creds.json');
+        if (fs.existsSync(credsPath)) {
+            try {
+                JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+            } catch (jsonErr) {
+                console.log('⚠️ creds.json is corrupted (Invalid JSON). Deleting to start fresh...');
+                fs.rmSync(credsPath, { force: true });
+            }
+        }
+        const authResult = await useMultiFileAuthState(authPath);
         state = authResult.state;
         saveCreds = authResult.saveCreds;
     } catch (err) {
-        console.log('⚠️ Error loading auth session (files might be corrupted):', err.message);
-        console.log('Deleting baileys_auth folder and starting fresh...');
-        try {
-            fs.rmSync('./baileys_auth', { recursive: true, force: true });
-        } catch (e) {}
-        setTimeout(startBot, 5000);
+        console.log('⚠️ Error loading auth session (files might be locked or busy):', err.message);
+        console.log('🔄 Retrying session load in 10 seconds...');
+        setTimeout(startBot, 10000);
         return;
     }
 
     // Automatically fetch the latest WhatsApp Web version to prevent 405 Connection Failure
-    let version = [2, 3000, 1017578278]; // Default fallback version
+    let version = [2, 3000, 1035194821]; // Default fallback version (updated to latest stable)
     try {
         const { version: latestVersion, isLatest } = await fetchLatestBaileysVersion();
         console.log(`🤖 Using WA version v${latestVersion.join('.')}, isLatest: ${isLatest}`);
@@ -319,7 +334,7 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         browser: ['MV Bot', 'Chrome', '1.0.0'], // Mimic a stable browser to prevent security disconnects
         syncFullHistory: false,                 // Do not sync old chats to save memory and CPU on Termux
-        keepAliveIntervalMs: 10000,             // Send a ping every 10 seconds to keep the socket alive on mobile sleep
+        keepAliveIntervalMs: 30000,             // Send a ping every 30 seconds to keep the socket alive stably without rate limit
         defaultQueryTimeoutMs: 90000,           // Query timeout
         connectTimeoutMs: 90000,                // Connection timeout
         retryRequestDelayMs: 5000               // Delay before retrying failed requests
@@ -334,6 +349,85 @@ async function startBot() {
             console.clear();
             qrcode.generate(qr, { small: true });
             console.log('📷 Scan the QR code above to link your bot.');
+            
+            // Write QR code to a simple HTML file for easy scanning (portable path)
+            try {
+                const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Scan WhatsApp QR - MV BOT</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #0b141a;
+            color: #e9edef;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .container {
+            text-align: center;
+            background-color: #111b21;
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            border: 1px solid #222e35;
+        }
+        #qrcode {
+            background-color: white;
+            padding: 20px;
+            border-radius: 16px;
+            display: inline-block;
+            margin: 20px 0;
+        }
+        h2 {
+            margin: 0 0 10px 0;
+            color: #00a884;
+        }
+        p {
+            margin: 0;
+            color: #8696a0;
+            font-size: 14px;
+        }
+        .instruction {
+            margin-top: 15px;
+            font-size: 15px;
+            color: #d1d7db;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>MV BOT - QR Code</h2>
+        <p>Scan this QR code using WhatsApp on your phone</p>
+        <div id="qrcode"></div>
+        <div class="instruction">
+            Go to <b>WhatsApp > Linked Devices > Link a Device</b> to scan.
+        </div>
+    </div>
+    <script>
+        new QRCode(document.getElementById("qrcode"), {
+            text: ${JSON.stringify(qr)},
+            width: 256,
+            height: 256,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+        });
+    </script>
+</body>
+</html>`;
+                const qrPath = path.join(__dirname, 'qr.html');
+                fs.writeFileSync(qrPath, htmlContent);
+                console.log(`👉 [QR CODE HTML GENERATED] Open qr.html to scan!`);
+            } catch (err) {
+                console.log("Error writing qr.html:", err);
+            }
         }
 
         if (connection === 'open') {
@@ -375,7 +469,7 @@ async function startBot() {
                 sock = null;
             }
 
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut && statusCode !== DisconnectReason.badSession;
 
             if (shouldReconnect) {
                 if (!isReconnecting) {
@@ -389,9 +483,9 @@ async function startBot() {
                     console.log('ℹ️ Reconnection already scheduled, ignoring duplicate close event.');
                 }
             } else {
-                console.log('❌ Bot logged out. Clearing session and restarting to generate new QR...');
+                console.log('❌ Bot logged out or bad session. Clearing session and restarting to generate new QR...');
                 try {
-                    fs.rmSync('./baileys_auth', { recursive: true, force: true });
+                    fs.rmSync(authPath, { recursive: true, force: true });
                 } catch (e) {
                     console.log('Error deleting baileys_auth folder:', e);
                 }
