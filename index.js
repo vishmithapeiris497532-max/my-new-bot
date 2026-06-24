@@ -25,7 +25,7 @@ function extractYoutubeUrl(text) {
 // Helper to fetch title using yt-dlp
 async function fetchVideoTitle(url) {
     try {
-        const { stdout } = await execPromise(`yt-dlp --js-runtimes node --get-title "${url}"`);
+        const { stdout } = await execPromise(`yt-dlp --js-runtimes node --get-title "${url}"`, { timeout: 15000 });
         return stdout.trim().replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename characters
     } catch (err) {
         console.log("Error fetching title with yt-dlp:", err);
@@ -36,7 +36,7 @@ async function fetchVideoTitle(url) {
 // Helper to fetch details (title, uploader, duration) using yt-dlp
 async function fetchVideoDetails(url) {
     try {
-        const { stdout } = await execPromise(`yt-dlp --js-runtimes node --print "%(title)s|%(uploader)s|%(duration_string)s" "${url}"`);
+        const { stdout } = await execPromise(`yt-dlp --js-runtimes node --print "%(title)s|%(uploader)s|%(duration_string)s" "${url}"`, { timeout: 15000 });
         const parts = stdout.trim().split('|');
         return {
             title: (parts[0] || 'Unknown Title').replace(/[/\\?%*:|"<>]/g, '-'),
@@ -47,7 +47,7 @@ async function fetchVideoDetails(url) {
         console.log("Error fetching details with yt-dlp:", err);
         // Fallback to title only if possible
         try {
-            const { stdout } = await execPromise(`yt-dlp --js-runtimes node --get-title "${url}"`);
+            const { stdout } = await execPromise(`yt-dlp --js-runtimes node --get-title "${url}"`, { timeout: 15000 });
             return {
                 title: stdout.trim().replace(/[/\\?%*:|"<>]/g, '-'),
                 uploader: 'Unknown',
@@ -706,8 +706,8 @@ async function startBot() {
                                 refererFlag = `--referer "${referer}"`;
                             }
 
-                            const command = `yt-dlp --js-runtimes node -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" ${refererFlag} -o "${outputPattern}" "${url}"`;
-                            await execPromise(command);
+                            const command = `yt-dlp --js-runtimes node --max-filesize 50M -f "best[height<=${height}][ext=mp4]/best[ext=mp4]/best" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" ${refererFlag} -o "${outputPattern}" "${url}"`;
+                            await execPromise(command, { timeout: 180000 });
 
                             const files = fs.readdirSync(tempDir);
                             const downloadedFile = files.find(f => f.startsWith(`video_${uniqueId}.`));
