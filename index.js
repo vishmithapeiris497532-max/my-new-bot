@@ -969,7 +969,24 @@ async function startBot() {
 │ ➣ ig <username> (Instagram Profile)
 ╰━━━━━━━━━━━━━━━━━━*
 
-© mv bot`;
+╭───〔 👥 GROUP FEATURES 〕───*
+│ ➣ Auto Welcome 👋
+╰━━━━━━━━━━━━━━━━━━*
+
+━━━━━━━━━━━━━━━━━━
+👑 Owner : MV PRODUCTION
+📱 WhatsApp : +94 784291630
+🚀 Version : 1.3
+🟢 Status : Online
+━━━━━━━━━━━━━━━━━━
+
+🔥 Fast Replies
+❤️ Status React
+🎵 YouTube Search
+👋 Group Welcome
+🧠 Smart Gemini AI Chatbot
+
+▄︻デ══━一💥`;
 
                 // Check if a logo image exists locally or via environment variables
                 const localLogoJpg = path.join(__dirname, 'logo.jpg');
