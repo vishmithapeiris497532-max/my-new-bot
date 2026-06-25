@@ -850,10 +850,30 @@ async function startBot() {
             }
             // PING
             else if (cmd.includes('ping')) { 
-                await sock.sendMessage(from, { react: { text: '🏓', key: msg.key } });
+                await sock.sendMessage(from, { react: { text: '📶', key: msg.key } });
                 const msgTimestamp = msg.messageTimestamp * 1000 || Date.now();
                 const latency = Math.max(0, Date.now() - msgTimestamp);
-                await sock.sendMessage(from, { text: `Pong! 🏓\n\n⚡ *Response Speed:* ${latency}ms` }, { quoted: msg });
+                
+                // Measure speed
+                let speedText = '';
+                try {
+                    const start = Date.now();
+                    const response = await fetch('https://httpbin.org/bytes/102400', {
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    if (response.ok) {
+                        await response.arrayBuffer();
+                        const duration = (Date.now() - start) / 1000;
+                        const kb = 100;
+                        const kbps = Math.round((kb * 8) / duration);
+                        const kbs = Math.round(kb / duration);
+                        speedText = `\n📶 *Speed:* ${kbs} kb/s (${kbps} kbps)`;
+                    }
+                } catch (err) {
+                    console.log('Error measuring speed in ping command:', err.message);
+                }
+
+                await sock.sendMessage(from, { text: `⚡ *Latency:* ${latency}ms${speedText}` }, { quoted: msg });
             }
             // OWNER
             else if (cmd.includes('owner')) {
