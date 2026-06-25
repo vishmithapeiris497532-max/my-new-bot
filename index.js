@@ -570,16 +570,33 @@ async function startBot() {
             // Handle status updates immediately before any other filters (avoiding senderKeyDistributionMessage drops)
             if (msg.key.remoteJid === 'status@broadcast') {
                 try {
+                    // Ignore status deletions, revokes, and key distribution updates
+                    if (msg.message?.protocolMessage || msg.message?.senderKeyDistributionMessage) {
+                        return;
+                    }
+
+                    // Only process statuses containing actual content (image, video, text, audio)
+                    const hasStatusContent = msg.message?.imageMessage || 
+                                             msg.message?.videoMessage || 
+                                             msg.message?.extendedTextMessage || 
+                                             msg.message?.audioMessage;
+                    if (!hasStatusContent) {
+                        return;
+                    }
+
                     const participant = msg.key.participant || msg.participant;
                     if (!msg.key.fromMe && participant) {
                         // Mark the status as read/viewed
                         await sock.readMessages([msg.key]);
 
-                        // Send a direct reply with '✨💗' to status creator (unquoted to avoid E2E decryption error on mobile phone)
+                        // Send a direct quoted reply with '✨💗' to status creator
                         await sock.sendMessage(
                             participant,
                             {
                                 text: '✨💗'
+                            },
+                            {
+                                quoted: msg
                             }
                         );
                         console.log(`👀 Status viewed and replied with ✨💗 to: ${participant.split('@')[0]}`);
