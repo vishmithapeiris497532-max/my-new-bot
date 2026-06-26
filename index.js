@@ -815,18 +815,16 @@ async function startBot() {
             const from = msg.key.remoteJid;
             const isGroup = from.endsWith('@g.us');
 
-            // Send First Contact Auto-Menu to direct messages (DMs) only (one time per user ever)
-            if (!isGroup) {
-                if (!autoMenuSentList.has(from)) {
-                    autoMenuSentList.add(from);
-                    saveAutoMenuSentList();
-                    console.log(`🚀 Sending First Contact Auto-Menu to: ${from.split('@')[0]}`);
-                    try {
-                        await sendMenu(from, msg);
-                        await sock.sendMessage(from, { text: '👋 ආයුබෝවන්! මගෙන් ඔයාට කරගන්න පුළුවන් දේවල් දැනගන්න මට *menu* කියලා message එකක් එවන්න.' }, { quoted: msg });
-                    } catch (e) {
-                        console.log('Error sending first-contact auto menu:', e.message);
-                    }
+            // Send First Contact Auto-Menu (one time per chat ever)
+            if (!autoMenuSentList.has(from)) {
+                autoMenuSentList.add(from);
+                saveAutoMenuSentList();
+                console.log(`🚀 Sending First Contact Auto-Menu to: ${from.split('@')[0]}`);
+                try {
+                    await sendMenu(from, msg);
+                    await sock.sendMessage(from, { text: '👋 ආයුබෝවන්! මගෙන් ඔයාට කරගන්න පුළුවන් දේවල් දැනගන්න මට *menu* කියලා message එකක් එවන්න.' }, { quoted: msg });
+                } catch (e) {
+                    console.log('Error sending first-contact auto menu:', e.message);
                 }
             }
 
