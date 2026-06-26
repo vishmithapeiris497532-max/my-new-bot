@@ -1034,7 +1034,7 @@ async function startBot() {
                 // Good night
                 'good night', 'gn', 'gn bs', 'සුභ රාත්‍රියක්', 'සුභ රාත්රියක්', 'subha rathriyak', 'இரவு வணக்கம்', 'iravu vanakkam',
                 // System commands
-                'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai', '.mp3', '.mp4', 'mp3', 'mp4', 'ig ', 'ig'
+                'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai', '.mp3', '.mp4', 'mp3', 'mp4', 'ig ', 'ig', 'calc ', 'calc', '.calc ', '.calc'
             ];
             const isCommand = commands.some(c => cmd.startsWith(c));
 
@@ -1191,6 +1191,37 @@ async function startBot() {
                 await sock.sendMessage(from, { 
                     text: `⚡ *Latency:* ${latency}ms\n📶 *Speed:* ${kbs} kb/s (${kbps} kbps)` 
                 }, { quoted: msg });
+            }
+            // CALCULATOR
+            else if (cmd.startsWith('calc ') || cmd === 'calc' || cmd.startsWith('.calc ') || cmd === '.calc') {
+                await sock.sendMessage(from, { react: { text: '🧮', key: msg.key } });
+                const expr = cmd.startsWith('.') ? text.slice(6).trim() : text.slice(5).trim();
+                if (!expr) {
+                    return await sock.sendMessage(from, { 
+                        text: `❌ *ගණිතමය ප්‍රකාශනයක් ඇතුළත් කරන්න!*\n\nප්‍රකාශනයක් တွණනය කිරීමට පහත පරිදි භාවිතා කරන්න:\n\n*උදා:* calc 5 + 3 * 2\n*උදා:* .calc (10 + 2) / 4` 
+                    }, { quoted: msg });
+                }
+
+                // Sanitize and check expression for safe mathematical symbols only
+                const sanitizedExpr = expr.replace(/\^/g, '**');
+                if (/^[0-9+\-*/().\s%**]+$/.test(sanitizedExpr)) {
+                    try {
+                        const result = new Function(`return (${sanitizedExpr})`)();
+                        if (result === undefined || isNaN(result) || !isFinite(result)) {
+                            throw new Error("Invalid output");
+                        }
+                        
+                        const calcText = `╭───〔 🧮 CALCULATOR 〕───*
+│ 📝 *Expression:* ${expr}
+│ 📈 *Result:* ${result}
+╰━━━━━━━━━━━━━━━━━━*`;
+                        await sock.sendMessage(from, { text: calcText }, { quoted: msg });
+                    } catch (err) {
+                        await sock.sendMessage(from, { text: `❌ *ගණනය කිරීම අසාර්ථක විය!*\n\nකරුණාකර නිවැරදි ප්‍රකාශනයක් ඇතුළත් කරන්න.` }, { quoted: msg });
+                    }
+                } else {
+                    await sock.sendMessage(from, { text: `❌ *වලංගු නොවන ප්‍රකාශනයක්!*\n\nභාවිතා කළ හැක්කේ ඉලක්කම් සහ ගණිතමය සලකුණු පමණි. (+, -, *, /, %, ^, (, ))` }, { quoted: msg });
+                }
             }
             // OWNER
             else if (cmd.includes('owner')) {
