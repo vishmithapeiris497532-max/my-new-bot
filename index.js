@@ -1376,8 +1376,8 @@ async function startBot() {
                 }
             }
             // CHATBOT / GEMINI AI TRIGGER
-            // Runs either if it starts with "ai " OR if it's a DM (not group), autoAI is active, and it is NOT one of the static command words
-            else if (cmd.startsWith('ai ') || (!isGroup && autoAIActive && !isCommand)) {
+            // Runs either if it starts with "ai " OR if autoAI is active and it is NOT one of the static command words
+            else if (cmd.startsWith('ai ') || (autoAIActive && !isCommand)) {
                 
                 let prompt = text;
                 if (cmd.startsWith('ai ')) {
