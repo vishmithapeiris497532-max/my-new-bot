@@ -832,6 +832,7 @@ async function startBot() {
            
             const from = msg.key.remoteJid;
             const isGroup = from.endsWith('@g.us');
+            const userName = msg.pushName || 'User';
 
             // Send First Contact Auto-Menu (one time per chat ever)
             if (!autoMenuSentList.has(from)) {
@@ -865,20 +866,20 @@ async function startBot() {
                     try {
                         if (totalMinutes >= 0 && totalMinutes < 720) {
                             // 12:00 AM to 12:00 PM - Good Morning
-                            await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!' }, { quoted: msg });
-                            await sock.sendMessage(from, { text: '☀️🥰*Good Morning*!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `☀️🥰*සුභ උදෑසනක් ${userName}*!` }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `☀️🥰*Good Morning ${userName}*!` }, { quoted: msg });
                         } else if (totalMinutes >= 720 && totalMinutes < 960) {
                             // 12:00 PM to 4:00 PM - Good Afternoon
-                            await sock.sendMessage(from, { text: '☀️🥰*සුභ පස්වරුවක්*!' }, { quoted: msg });
-                            await sock.sendMessage(from, { text: '☀️🥰*Good Afternoon*!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `☀️🥰*සුභ පස්වරුවක් ${userName}*!` }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `☀️🥰*Good Afternoon ${userName}*!` }, { quoted: msg });
                         } else if (totalMinutes >= 960 && totalMinutes < 1290) {
                             // 4:00 PM to 9:30 PM - Good Evening
-                            await sock.sendMessage(from, { text: '🌇🥰*සුභ සැන්දෑවක්*!' }, { quoted: msg });
-                            await sock.sendMessage(from, { text: '🌇🥰*Good Evening*!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `🌇🥰*සුභ සැන්දෑවක් ${userName}*!` }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `🌇🥰*Good Evening ${userName}*!` }, { quoted: msg });
                         } else {
                             // 9:30 PM to 12:00 AM - Good Night
-                            await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
-                            await sock.sendMessage(from, { text: '😴💖*Good Night*!\n\nSweet dreams!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `😴💖*සුභ රාත්‍රියක් ${userName}*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!` }, { quoted: msg });
+                            await sock.sendMessage(from, { text: `😴💖*Good Night ${userName}*!\n\nSweet dreams!` }, { quoted: msg });
                         }
                     } catch (err) {
                         console.log('Error sending daily welcome greeting:', err.message);
@@ -1135,85 +1136,85 @@ async function startBot() {
             if (hasWords(cmd, englishHi) || hasWords(cmd, sinhalaHi) || hasWords(cmd, tamilHi)) {
                 await sock.sendMessage(from, { react: { text: '🤗', key: msg.key } });
                 if (hasWords(cmd, tamilHi)) {
-                    await sock.sendMessage(from, { text: 'வணக்கம்! 👋' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `வணக்கம் ${userName}! 👋` }, { quoted: msg });
                 } else if (hasWords(cmd, englishHi)) {
-                    await sock.sendMessage(from, { text: 'Hello! 👋' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `Hello ${userName}! 👋` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: 'හලෝ! 👋' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `හලෝ ${userName}! 👋` }, { quoted: msg });
                 }
             }
             // KOHOMADA
             else if (hasWords(cmd, englishKohomada) || hasWords(cmd, sinhalaKohomada) || hasWords(cmd, tamilKohomada)) {
                 await sock.sendMessage(from, { react: { text: '🫣', key: msg.key } });
                 if (hasWords(cmd, tamilKohomada)) {
-                    await sock.sendMessage(from, { text: 'நான் நலம், நீங்கள் எப்படி இருக்கிறீர்கள்? 🤭' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `நான் நலம், நீங்கள் எப்படி இருக்கிறீர்கள் ${userName}? 🤭` }, { quoted: msg });
                 } else if (hasWords(cmd, englishKohomada)) {
-                    await sock.sendMessage(from, { text: "I'm doing well, how about you? 🤭" }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `I'm doing well, how about you ${userName}? 🤭` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: 'මම හොදින් ඔයාට කොහොමද!🤭' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `මම හොදින් ${userName}, ඔයාට කොහොමද!🤭` }, { quoted: msg });
                 }
             }
             // MAMA HODIN
             else if (hasWords(cmd, englishMamaHodin) || hasWords(cmd, sinhalaMamaHodin) || hasWords(cmd, tamilMamaHodin)) {
                 await sock.sendMessage(from, { react: { text: '😊', key: msg.key } });
                 if (hasWords(cmd, tamilMamaHodin)) {
-                    await sock.sendMessage(from, { text: 'அருமை...💪' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `அருமை ${userName}...💪` }, { quoted: msg });
                 } else if (hasWords(cmd, englishMamaHodin)) {
-                    await sock.sendMessage(from, { text: 'Awesome...💪' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `Awesome ${userName}...💪` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: 'සුපිරි...💪' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `සුපිරි ${userName}...💪` }, { quoted: msg });
                 }
             }
             // LOVE YOU
             else if (hasWords(cmd, englishLoveYou) || hasWords(cmd, sinhalaLoveYou) || hasWords(cmd, tamilLoveYou)) {
                 await sock.sendMessage(from, { react: { text: '💖', key: msg.key } });
                 if (hasWords(cmd, tamilLoveYou)) {
-                    await sock.sendMessage(from, { text: 'நானும் உன்னை நேசிக்கிறேன்! 🥹💖' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `நானும் உன்னை நேசிக்கிறேன் ${userName}! 🥹💖` }, { quoted: msg });
                 } else if (hasWords(cmd, englishLoveYou)) {
-                    await sock.sendMessage(from, { text: 'Love YOU too! 🥹💖' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `Love YOU too ${userName}! 🥹💖` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: 'මාත් ඔයාට ආදරෙයි! 🥹💖' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `මාත් ඔයාට ආදරෙයි ${userName}! 🥹💖` }, { quoted: msg });
                 }
             }         
             // GOOD MORNING
             else if (hasWords(cmd, englishGM) || hasWords(cmd, sinhalaGM) || hasWords(cmd, tamilGM)) {
                 await sock.sendMessage(from, { react: { text: '🥱', key: msg.key } });
                 if (hasWords(cmd, tamilGM)) {
-                    await sock.sendMessage(from, { text: '☀️🥰*காலை வணக்கம்*!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `☀️🥰*காலை வணக்கம் ${userName}*!` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!' }, { quoted: msg });
-                    await sock.sendMessage(from, { text: '☀️🥰*Good Morning*!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `☀️🥰*සුභ උදෑසනක් ${userName}*!` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `☀️🥰*Good Morning ${userName}*!` }, { quoted: msg });
                 }
             }
             // THANKS
             else if (hasWords(cmd, englishThanks) || hasWords(cmd, sinhalaThanks) || hasWords(cmd, tamilThanks)) {
                 await sock.sendMessage(from, { react: { text: '🫀', key: msg.key } });
                 if (hasWords(cmd, tamilThanks)) {
-                    await sock.sendMessage(from, { text: '😊 வரவேற்பு!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `😊 வரவேற்பு ${userName}!` }, { quoted: msg });
                 } else if (hasWords(cmd, englishThanks)) {
-                    await sock.sendMessage(from, { text: '😊 Welcome!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `😊 Welcome ${userName}!` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: '😊 සාදරයෙන් පිළිගනිමු!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `😊 සාදරයෙන් පිළිගනිමු ${userName}!` }, { quoted: msg });
                 }
             }
             // BYE
             else if (hasWords(cmd, englishBye) || hasWords(cmd, sinhalaBye) || hasWords(cmd, tamilBye)) {
                 await sock.sendMessage(from, { react: { text: '👋', key: msg.key } });
                 if (hasWords(cmd, tamilBye)) {
-                    await sock.sendMessage(from, { text: '👋💖*கவனமாக செல்லுங்கள்*!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `👋💖*கவனமாக செல்லுங்கள் ${userName}*!` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: '👋💖*පරිස්සමෙන් යන්න*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*' }, { quoted: msg });
-                    await sock.sendMessage(from, { text: '👋💖*Take care*!\n\nHave a great day!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `👋💖*පරිස්සමෙන් යන්න ${userName}*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `👋💖*Take care ${userName}*!\n\nHave a great day!` }, { quoted: msg });
                 }
             }
             // GOOD NIGHT
             else if (hasWords(cmd, englishGN) || hasWords(cmd, sinhalaGN) || hasWords(cmd, tamilGN)) {
                 await sock.sendMessage(from, { react: { text: '🌙', key: msg.key } });
                 if (hasWords(cmd, tamilGN)) {
-                    await sock.sendMessage(from, { text: '😴💖*இரவு வணக்கம்*!\n\nஇனிய கனவுகள்!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `😴💖*இரவு வணக்கம் ${userName}*!\n\nஇனிய கனவுகள்!` }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
-                    await sock.sendMessage(from, { text: '😴💖*Good Night*!\n\nSweet dreams!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `😴💖*සුභ රාත්‍රියක් ${userName}*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `😴💖*Good Night ${userName}*!\n\nSweet dreams!` }, { quoted: msg });
                 }
             }
             // PING
