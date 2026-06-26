@@ -270,6 +270,19 @@ function addToHistory(from, role, text) {
     }
 }
 
+// Lightweight message cache to support E2E retry decryption
+const msgCache = new Map();
+function cacheMessage(msg) {
+    if (msg?.key?.id && msg.message) {
+        msgCache.set(msg.key.id, msg.message);
+        // Limit cache size to 500 messages to prevent memory leaks in Termux background
+        if (msgCache.size > 500) {
+            const firstKey = msgCache.keys().next().value;
+            msgCache.delete(firstKey);
+        }
+    }
+}
+
 let sock = null;
 let isReconnecting = false;
 
@@ -354,7 +367,13 @@ async function startBot() {
         keepAliveIntervalMs: 30000,             // Send a ping every 30 seconds to keep the socket alive stably without rate limit
         defaultQueryTimeoutMs: 90000,           // Query timeout
         connectTimeoutMs: 90000,                // Connection timeout
-        retryRequestDelayMs: 5000               // Delay before retrying failed requests
+        retryRequestDelayMs: 5000,              // Delay before retrying failed requests
+        getMessage: async (key) => {
+            if (msgCache.has(key.id)) {
+                return msgCache.get(key.id);
+            }
+            return undefined;
+        }
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -553,6 +572,13 @@ async function startBot() {
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         try {
+            // Cache any incoming/outgoing messages for E2E retry decryption before any early return
+            if (messages && messages.length > 0) {
+                for (const m of messages) {
+                    cacheMessage(m);
+                }
+            }
+
             console.log(`📩 [messages.upsert] Event triggered! Type: ${type} | Messages count: ${messages?.length}`);
             
             // Only process real-time new messages to avoid reacting/replying to historical/offline sync data
