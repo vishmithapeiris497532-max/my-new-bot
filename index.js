@@ -1124,6 +1124,7 @@ async function startBot() {
                     await sock.sendMessage(from, { text: '☀️🥰*காலை வணக்கம்*!' }, { quoted: msg });
                 } else {
                     await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '☀️🥰*Good Morning*!' }, { quoted: msg });
                 }
             }
             // THANKS
@@ -1144,6 +1145,7 @@ async function startBot() {
                     await sock.sendMessage(from, { text: '👋💖*கவனமாக செல்லுங்கள்*!' }, { quoted: msg });
                 } else {
                     await sock.sendMessage(from, { text: '👋💖*පරිස්සමෙන් යන්න*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '👋💖*Take care*!\n\nHave a great day!' }, { quoted: msg });
                 }
             }
             // GOOD NIGHT
@@ -1153,6 +1155,7 @@ async function startBot() {
                     await sock.sendMessage(from, { text: '😴💖*இரவு வணக்கம்*!\n\nஇனிய கனவுகள்!' }, { quoted: msg });
                 } else {
                     await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '😴💖*Good Night*!\n\nSweet dreams!' }, { quoted: msg });
                 }
             }
             // PING
