@@ -376,6 +376,16 @@ async function startBot() {
         }
     });
 
+    // Wrap sendMessage to automatically cache all outgoing messages for E2E retry decryption
+    const originalSendMessage = sock.sendMessage.bind(sock);
+    sock.sendMessage = async (jid, content, options) => {
+        const result = await originalSendMessage(jid, content, options);
+        if (result) {
+            cacheMessage(result);
+        }
+        return result;
+    };
+
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
