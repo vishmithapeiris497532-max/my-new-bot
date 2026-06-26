@@ -304,6 +304,24 @@ function saveAutoMenuSentList() {
     }
 }
 
+// Persistent list of daily greetings JID mappings
+const dailyGreetingsFilePath = path.join(__dirname, 'daily_greetings.json');
+let dailyGreetings = {};
+if (fs.existsSync(dailyGreetingsFilePath)) {
+    try {
+        dailyGreetings = JSON.parse(fs.readFileSync(dailyGreetingsFilePath, 'utf-8'));
+    } catch (e) {
+        console.log('Error reading daily_greetings.json:', e.message);
+    }
+}
+function saveDailyGreetings() {
+    try {
+        fs.writeFileSync(dailyGreetingsFilePath, JSON.stringify(dailyGreetings, null, 2));
+    } catch (e) {
+        console.log('Error writing daily_greetings.json:', e.message);
+    }
+}
+
 let sock = null;
 let isReconnecting = false;
 let reconnectAttempts = 0;
@@ -819,12 +837,52 @@ async function startBot() {
             if (!autoMenuSentList.has(from)) {
                 autoMenuSentList.add(from);
                 saveAutoMenuSentList();
+                // Mark daily greeting as sent for today to avoid double greeting
+                const today = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
+                dailyGreetings[from] = today;
+                saveDailyGreetings();
                 console.log(`🚀 Sending First Contact Auto-Menu to: ${from.split('@')[0]}`);
                 try {
                     await sendMenu(from, msg);
                     await sock.sendMessage(from, { text: '👋 ආයුබෝවන්! මගෙන් ඔයාට කරගන්න පුළුවන් දේවල් දැනගන්න මට *menu* කියලා message එකක් එවන්න.' }, { quoted: msg });
                 } catch (e) {
                     console.log('Error sending first-contact auto menu:', e.message);
+                }
+            } else {
+                // Send Daily Greetings based on time of day (once per day per JID)
+                const today = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
+                if (dailyGreetings[from] !== today) {
+                    dailyGreetings[from] = today;
+                    saveDailyGreetings();
+                    
+                    const colomboTime = new Date().toLocaleTimeString('en-US', { hour12: false, timeZone: 'Asia/Colombo' });
+                    const [hourStr, minStr] = colomboTime.split(':');
+                    const hour = parseInt(hourStr, 10);
+                    const minute = parseInt(minStr, 10);
+                    const totalMinutes = hour * 60 + minute;
+                    
+                    console.log(`🌅 Sending daily welcome greeting to: ${from.split('@')[0]} (Time: ${colomboTime})`);
+                    try {
+                        if (totalMinutes >= 0 && totalMinutes < 720) {
+                            // 12:00 AM to 12:00 PM - Good Morning
+                            await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: '☀️🥰*Good Morning*!' }, { quoted: msg });
+                        } else if (totalMinutes >= 720 && totalMinutes < 960) {
+                            // 12:00 PM to 4:00 PM - Good Afternoon
+                            await sock.sendMessage(from, { text: '☀️🥰*සුභ පස්වරුවක්*!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: '☀️🥰*Good Afternoon*!' }, { quoted: msg });
+                        } else if (totalMinutes >= 960 && totalMinutes < 1290) {
+                            // 4:00 PM to 9:30 PM - Good Evening
+                            await sock.sendMessage(from, { text: '🌇🥰*සුභ සැන්දෑවක්*!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: '🌇🥰*Good Evening*!' }, { quoted: msg });
+                        } else {
+                            // 9:30 PM to 12:00 AM - Good Night
+                            await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
+                            await sock.sendMessage(from, { text: '😴💖*Good Night*!\n\nSweet dreams!' }, { quoted: msg });
+                        }
+                    } catch (err) {
+                        console.log('Error sending daily welcome greeting:', err.message);
+                    }
                 }
             }
 
