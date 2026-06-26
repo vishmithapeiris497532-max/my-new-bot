@@ -287,6 +287,8 @@ function cacheMessage(msg) {
 
 let sock = null;
 let isReconnecting = false;
+let reconnectAttempts = 0;
+let fetchedVersion = null;
 
 async function startBot() {
     // Dynamically import ES Module @whiskeysockets/baileys
@@ -352,12 +354,17 @@ async function startBot() {
 
     // Automatically fetch the latest WhatsApp Web version to prevent 405 Connection Failure
     let version = [2, 3000, 1035194821]; // Default fallback version (updated to latest stable)
-    try {
-        const { version: latestVersion, isLatest } = await fetchLatestBaileysVersion();
-        console.log(`🤖 Using WA version v${latestVersion.join('.')}, isLatest: ${isLatest}`);
-        version = latestVersion;
-    } catch (err) {
-        console.log("⚠️ Error fetching latest WhatsApp version, using fallback:", err.message);
+    if (fetchedVersion) {
+        version = fetchedVersion;
+    } else {
+        try {
+            const { version: latestVersion, isLatest } = await fetchLatestBaileysVersion();
+            console.log(`🤖 Using WA version v${latestVersion.join('.')}, isLatest: ${isLatest}`);
+            version = latestVersion;
+            fetchedVersion = latestVersion;
+        } catch (err) {
+            console.log("⚠️ Error fetching latest WhatsApp version, using fallback:", err.message);
+        }
     }
 
     sock = makeWASocket({
@@ -480,6 +487,7 @@ async function startBot() {
 
         if (connection === 'open') {
             console.log('✅ Bot Connected Successfully!');
+            reconnectAttempts = 0; // Reset attempts on successful connection
             setTimeout(() => {
                 try {
                     const credsPath = path.resolve(process.cwd(), 'baileys_auth', 'creds.json');
@@ -522,16 +530,20 @@ async function startBot() {
             if (shouldReconnect) {
                 if (!isReconnecting) {
                     isReconnecting = true;
-                    console.log('🔄 Reconnecting in 5 seconds...');
+                    // Calculate delay with exponential backoff: 5s, 10s, 20s, up to 60s
+                    const delay = Math.min(60000, 5000 * Math.pow(2, reconnectAttempts));
+                    console.log(`🔄 Reconnecting in ${delay / 1000} seconds... (Attempt ${reconnectAttempts + 1})`);
+                    reconnectAttempts++;
                     setTimeout(async () => {
                         isReconnecting = false;
                         await startBot();
-                    }, 5000);
+                    }, delay);
                 } else {
                     console.log('ℹ️ Reconnection already scheduled, ignoring duplicate close event.');
                 }
             } else {
                 console.log('❌ Bot logged out or bad session. Clearing session and restarting to generate new QR...');
+                reconnectAttempts = 0; // Reset
                 try {
                     fs.rmSync(authPath, { recursive: true, force: true });
                 } catch (e) {
