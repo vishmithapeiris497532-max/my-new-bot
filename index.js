@@ -1016,48 +1016,150 @@ async function startBot() {
             }
 
             // Define known command prefixes to avoid Auto-AI hijacking standard command words
-            const commands = ['hi', 'hello', 'hey', 'kohomada', 'කොහොමද', 'mama hodin', 'මම හොඳින්', 'මමත් හොඳින්', 'මමත් හොදින්', 'love you', 'i love you', 'ආදරෙයි', 'good morning', 'සුභ උදෑසනක්', 'gm', 'thanks', 'thank you', 'ස්තුතියි', 'bye', 'good bye', 'ගිහින් එන්නම්', 'good night', 'සුභ රාත්රියක්', 'gn', 'gn bs', 'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai', '.mp3', '.mp4', 'mp3', 'mp4', 'ig ', 'ig'];
+            const commands = [
+                // Hi
+                'hi', 'hello', 'hey', 'ආයුබෝවන්', 'හලෝ', 'halow', 'halo', 'வணக்கம்', 'vanakkam',
+                // Kohomada
+                'kohomada', 'කොහොමද', 'how are you', 'how r u', 'how you doing', 'எப்படி', 'eppadi',
+                // Mama hodin
+                'mama hodin', 'mamath hodin', 'මම හොඳින්', 'මම හොදින්', 'මමත් හොඳින්', 'මමත් හොදින්', 'i am fine', 'i am good', 'im good', 'im fine', 'நான் நலம்', 'naan nalam', 'nalla iruken', 'nalla irukken',
+                // Love you
+                'love you', 'i love you', 'love u', 'ආදරෙයි', 'adareyi', 'adarai', 'உன்னை காதலிக்கிறேன்', 'ennaku unnai pidikkum', 'unai kadalikiren', 'enaku unai pidikum',
+                // Good morning
+                'good morning', 'gm', 'සුභ උදෑසනක්', 'subha udasanak', 'காலை வணக்கம்', 'kaalai vanakkam',
+                // Thanks
+                'thanks', 'thank you', 'thank u', 'ස්තුතියි', 'sthuthi', 'sthuthiy', 'நன்றி', 'nandri',
+                // Bye
+                'bye', 'good bye', 'ගිහින් එන්නම්', 'gihin ennam', 'போய் வருகிறேன்', 'poi varukiren',
+                // Good night
+                'good night', 'gn', 'gn bs', 'සුභ රාත්‍රියක්', 'සුභ රාත්රියක්', 'subha rathriyak', 'இரவு வணக்கம்', 'iravu vanakkam',
+                // System commands
+                'ping', 'owner', 'alive', 'joke', 'menu', 'song ', 'autoai', '.mp3', '.mp4', 'mp3', 'mp4', 'ig ', 'ig'
+            ];
             const isCommand = commands.some(c => cmd.startsWith(c));
 
+            // Helper to check language matching
+            const hasWords = (text, words) => words.some(word => text.includes(word));
+
+            const tamilHi = ['வணக்கம்', 'vanakkam'];
+            const sinhalaHi = ['ආයුබෝවන්', 'හලෝ', 'halow', 'halo'];
+            const englishHi = ['hi', 'hello', 'hey'];
+
+            const tamilKohomada = ['எப்படி', 'eppadi'];
+            const sinhalaKohomada = ['කොහොමද', 'kohomada'];
+            const englishKohomada = ['how are you', 'how r u', 'how you doing'];
+
+            const tamilMamaHodin = ['நான் நலம்', 'naan nalam', 'nalla iruken', 'nalla irukken'];
+            const sinhalaMamaHodin = ['මම හොඳින්', 'මම හොදින්', 'මමත් හොඳින්', 'මමත් හොදින්', 'mama hodin', 'mama hodin'];
+            const englishMamaHodin = ['i am fine', 'i am good', 'im good', 'im fine'];
+
+            const tamilLoveYou = ['உன்னை காதலிக்கிறேன்', 'ennaku unnai pidikkum', 'unai kadalikiren', 'enaku unai pidikum', 'kadhal'];
+            const sinhalaLoveYou = ['ආදරෙයි', 'adareyi', 'adarai'];
+            const englishLoveYou = ['love you', 'i love you', 'love u'];
+
+            const tamilGM = ['காலை வணக்கம்', 'kaalai vanakkam'];
+            const sinhalaGM = ['සුභ උදෑසනක්', 'subha udasanak'];
+            const englishGM = ['good morning', 'gm'];
+
+            const tamilThanks = ['நன்றி', 'nandri'];
+            const sinhalaThanks = ['ස්තුතියි', 'sthuthi', 'sthuthiy'];
+            const englishThanks = ['thanks', 'thank you', 'thank u'];
+
+            const tamilBye = ['போய் வருகிறேன்', 'poi varukiren'];
+            const sinhalaBye = ['ගිහින් එන්නම්', 'gihin ennam'];
+            const englishBye = ['bye', 'good bye'];
+
+            const tamilGN = ['இரவு வணக்கம்', 'iravu vanakkam'];
+            const sinhalaGN = ['සුභ රාත්‍රියක්', 'සුභ රාත්රියක්', 'subha rathriyak'];
+            const englishGN = ['good night', 'gn', 'gn bs'];
+
             // HI
-            if (cmd.includes('hi') || cmd.includes('hello') || cmd.includes('hey')) {
+            if (hasWords(cmd, englishHi) || hasWords(cmd, sinhalaHi) || hasWords(cmd, tamilHi)) {
                 await sock.sendMessage(from, { react: { text: '🤗', key: msg.key } });
-                await sock.sendMessage(from, { text: 'හලෝ! 👋' }, { quoted: msg });
+                if (hasWords(cmd, tamilHi)) {
+                    await sock.sendMessage(from, { text: 'வணக்கம்! 👋' }, { quoted: msg });
+                } else if (hasWords(cmd, englishHi)) {
+                    await sock.sendMessage(from, { text: 'Hello! 👋' }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: 'හලෝ! 👋' }, { quoted: msg });
+                }
             }
             // KOHOMADA
-            else if (cmd.includes('kohomada') || cmd.includes('කොහොමද')) {
+            else if (hasWords(cmd, englishKohomada) || hasWords(cmd, sinhalaKohomada) || hasWords(cmd, tamilKohomada)) {
                 await sock.sendMessage(from, { react: { text: '🫣', key: msg.key } });
-                await sock.sendMessage(from, { text: 'මම හොදින් ඔයාට කොහොමද!🤭' }, { quoted: msg });
+                if (hasWords(cmd, tamilKohomada)) {
+                    await sock.sendMessage(from, { text: 'நான் நலம், நீங்கள் எப்படி இருக்கிறீர்கள்? 🤭' }, { quoted: msg });
+                } else if (hasWords(cmd, englishKohomada)) {
+                    await sock.sendMessage(from, { text: "I'm doing well, how about you? 🤭" }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: 'මම හොදින් ඔයාට කොහොමද!🤭' }, { quoted: msg });
+                }
             }
             // MAMA HODIN
-            else if (cmd.includes('mama hodin') || cmd.includes('මම හොඳින්') || cmd.includes('මමත් හොඳින්') || cmd.includes('මමත් හොදින්')) {
+            else if (hasWords(cmd, englishMamaHodin) || hasWords(cmd, sinhalaMamaHodin) || hasWords(cmd, tamilMamaHodin)) {
                 await sock.sendMessage(from, { react: { text: '😊', key: msg.key } });
-                await sock.sendMessage(from, { text: 'සුපිරි...💪' }, { quoted: msg });
+                if (hasWords(cmd, tamilMamaHodin)) {
+                    await sock.sendMessage(from, { text: 'அருமை...💪' }, { quoted: msg });
+                } else if (hasWords(cmd, englishMamaHodin)) {
+                    await sock.sendMessage(from, { text: 'Awesome...💪' }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: 'සුපිරි...💪' }, { quoted: msg });
+                }
             }
             // LOVE YOU
-            else if (cmd.includes('love you') || cmd.includes('i love you') || cmd.includes('ආදරෙයි')) {
+            else if (hasWords(cmd, englishLoveYou) || hasWords(cmd, sinhalaLoveYou) || hasWords(cmd, tamilLoveYou)) {
                 await sock.sendMessage(from, { react: { text: '💖', key: msg.key } });
-                await sock.sendMessage(from, { text: 'Love YOU to🥹💖!' }, { quoted: msg });
+                if (hasWords(cmd, tamilLoveYou)) {
+                    await sock.sendMessage(from, { text: 'நானும் உன்னை நேசிக்கிறேன்! 🥹💖' }, { quoted: msg });
+                } else if (hasWords(cmd, englishLoveYou)) {
+                    await sock.sendMessage(from, { text: 'Love YOU too! 🥹💖' }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: 'මාත් ඔයාට ආදරෙයි! 🥹💖' }, { quoted: msg });
+                }
             }         
             // GOOD MORNING
-            else if (cmd.includes('good morning') || cmd.includes('සුභ උදෑසනක්') || cmd.includes('gm')) {
+            else if (hasWords(cmd, englishGM) || hasWords(cmd, sinhalaGM) || hasWords(cmd, tamilGM)) {
                 await sock.sendMessage(from, { react: { text: '🥱', key: msg.key } });
-                await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!' }, { quoted: msg });
+                if (hasWords(cmd, tamilGM)) {
+                    await sock.sendMessage(from, { text: '☀️🥰*காலை வணக்கம்*!' }, { quoted: msg });
+                } else if (hasWords(cmd, englishGM)) {
+                    await sock.sendMessage(from, { text: '☀️🥰*Good Morning*!' }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!' }, { quoted: msg });
+                }
             }
             // THANKS
-            else if (cmd.includes('thanks') || cmd.includes('thank you') || cmd.includes('ස්තුතියි')) {
+            else if (hasWords(cmd, englishThanks) || hasWords(cmd, sinhalaThanks) || hasWords(cmd, tamilThanks)) {
                 await sock.sendMessage(from, { react: { text: '🫀', key: msg.key } });
-                await sock.sendMessage(from, { text: '😊 Welcome!' }, { quoted: msg });
+                if (hasWords(cmd, tamilThanks)) {
+                    await sock.sendMessage(from, { text: '😊 வரவேற்பு!' }, { quoted: msg });
+                } else if (hasWords(cmd, englishThanks)) {
+                    await sock.sendMessage(from, { text: '😊 Welcome!' }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: '😊 සාදරයෙන් පිළිගනිමු!' }, { quoted: msg });
+                }
             }
             // BYE
-            else if (cmd.includes('bye') || cmd.includes('good bye') || cmd.includes('ගිහින් එන්නම්')) {
+            else if (hasWords(cmd, englishBye) || hasWords(cmd, sinhalaBye) || hasWords(cmd, tamilBye)) {
                 await sock.sendMessage(from, { react: { text: '👋', key: msg.key } });
-                await sock.sendMessage(from, { text: '👋💖*පරිස්සමෙන් යන්න*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*' }, { quoted: msg });
+                if (hasWords(cmd, tamilBye)) {
+                    await sock.sendMessage(from, { text: '👋💖*கவனமாக செல்லுங்கள்*!' }, { quoted: msg });
+                } else if (hasWords(cmd, englishBye)) {
+                    await sock.sendMessage(from, { text: '👋💖*Take care*!\n\nHave a great day!' }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: '👋💖*පරිස්සමෙන් යන්න*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*' }, { quoted: msg });
+                }
             }
             // GOOD NIGHT
-            else if (cmd.includes('good night') || cmd.includes('සුභ රාත්‍රියක්') || cmd.includes('gn') || cmd.includes('gn bs')) {
+            else if (hasWords(cmd, englishGN) || hasWords(cmd, sinhalaGN) || hasWords(cmd, tamilGN)) {
                 await sock.sendMessage(from, { react: { text: '🌙', key: msg.key } });
-                await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
+                if (hasWords(cmd, tamilGN)) {
+                    await sock.sendMessage(from, { text: '😴💖*இரவு வணக்கம்*!\n\nஇனிய கனவுகள்!' }, { quoted: msg });
+                } else if (hasWords(cmd, englishGN)) {
+                    await sock.sendMessage(from, { text: '😴💖*Good Night*!\n\nSweet dreams!' }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
+                }
             }
             // PING
             else if (cmd.includes('ping')) { 
