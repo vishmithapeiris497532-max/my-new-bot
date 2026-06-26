@@ -223,7 +223,8 @@ function getModelInstance() {
     const genAI = new GoogleGenerativeAI(key);
     return genAI.getGenerativeModel({
         model: "gemini-2.5-flash",
-        systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot created by Vishmitha. 
+        systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot. 
+Do not mention any creator name, developer name, or owner name like Vishmitha under any circumstances. If anyone asks who created you or who is your owner, simply state in Sinhala that you are an AI bot.
 Your goal is to reply natural and conversational responses.
 Since your audience is from Sri Lanka, reply in Sinhala or a friendly mix of Sinhala and English (Singlish) where appropriate. 
 Keep your responses neat, well-structured, relatively short (suitable for quick WhatsApp reading), and use emojis nicely.`
@@ -915,14 +916,14 @@ async function startBot() {
             else if (cmd.includes('owner')) {
                 await sock.sendMessage(from, { react: { text: '👑', key: msg.key } });
                 await sock.sendMessage(from, {
-                    text: `👑 *BOT OWNER* : Vishmitha\n\n📞 *WhatsApp* : +94 784291630`
+                    text: `👑 *BOT OWNER* : MV PRODUCTION\n\n📞 *WhatsApp* : +94 784291630`
                 }, { quoted: msg });
             } 
             // ALIVE
             else if (cmd.includes('alive')) {
                 await sock.sendMessage(from, { react: { text: '🟢', key: msg.key } });
                 await sock.sendMessage(from, {
-                    text: `🟢 *MV BOT IS ONLINE*\n\n⚡ Status : Active\n🚀 Version : 1.2\n👑 Owner : Vishmitha`
+                    text: `🟢 *MV BOT IS ONLINE*\n\n⚡ Status : Active\n🚀 Version : 1.2\n👑 Owner : MV PRODUCTION`
                 }, { quoted: msg });
             }
             // JOKE
@@ -1007,7 +1008,7 @@ async function startBot() {
 ━━━━━━━━━━━━━━━━━━
 
 ╭───〔 SYSTEM STATS 〕───*
-│ 👑 *Owner* : Vishmitha
+│ 👑 *Owner* : MV PRODUCTION
 │ ⚙️ *Mode* : PUBLIC
 │ ⏱️ *Uptime* : ${uptimeStr}
 │ 🚀 *Latency* : ${latency}ms
@@ -1105,7 +1106,7 @@ async function startBot() {
                 const query = text.slice(3).trim();
 
                 if (!query) {
-                    return await sock.sendMessage(from, { text: '❌ කරුණාකර සෙවිය යුතු නම හෝ username එක ලබා දෙන්න. (උදා: ig vishmitha)' }, { quoted: msg });
+                    return await sock.sendMessage(from, { text: '❌ කරුණාකර සෙවිය යුතු නම හෝ username එක ලබා දෙන්න. (උදා: ig travel)' }, { quoted: msg });
                 }
 
                 await sock.sendMessage(from, { text: `🔍 Instagram හි *"${query}"* සොයමින් පවතී. කරුණාකර රැඳී සිටින්න...` }, { quoted: msg });
