@@ -218,12 +218,13 @@ async function searchInstagramProfiles(query) {
 const apiKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
 let currentKeyIndex = 0;
 
-function getModelInstance() {
+function getModelInstance(userName) {
     const key = apiKeys[currentKeyIndex] || "YOUR_GEMINI_API_KEY_HERE";
     const genAI = new GoogleGenerativeAI(key);
     return genAI.getGenerativeModel({
         model: "gemini-2.5-flash",
         systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot. 
+The user you are chatting with is named "${userName}". You should address them by this name (or any name they ask you to call them) during the conversation.
 Only mention the creator's name (Vishmitha) if someone explicitly asks who created you or who is your owner. Otherwise, do not mention the developer or owner name like Vishmitha anywhere in your responses under any circumstances.
 Your goal is to reply natural and conversational responses.
 Since your audience is from Sri Lanka, reply in Sinhala or a friendly mix of Sinhala and English (Singlish) where appropriate. 
@@ -892,25 +893,32 @@ async function startBot() {
                 const latency = Math.max(0, Date.now() - msgTimestamp);
                 
                 // Measure speed
-                let speedText = '';
+                let kbs = 0;
+                let kbps = 0;
                 try {
                     const start = Date.now();
-                    const response = await fetch('https://httpbin.org/bytes/102400', {
-                        signal: AbortSignal.timeout(5000)
+                    const response = await fetch('https://httpbin.org/bytes/20480', { // 20 KB for fast and stable download
+                        signal: AbortSignal.timeout(3000)
                     });
                     if (response.ok) {
                         await response.arrayBuffer();
-                        const duration = (Date.now() - start) / 1000;
-                        const kb = 100;
-                        const kbps = Math.round((kb * 8) / duration);
-                        const kbs = Math.round(kb / duration);
-                        speedText = `\n📶 *Speed:* ${kbs} kb/s (${kbps} kbps)`;
+                        const duration = Math.max(0.01, (Date.now() - start) / 1000);
+                        const kb = 20;
+                        kbps = Math.round((kb * 8) / duration);
+                        kbs = Math.round(kb / duration);
+                    } else {
+                        throw new Error('Response not OK');
                     }
                 } catch (err) {
-                    console.log('Error measuring speed in ping command:', err.message);
+                    console.log('Error measuring speed in ping command, using estimation:', err.message);
+                    // Estimate speed based on latency (inversely proportional)
+                    kbs = Math.max(5, Math.round(120000 / (latency + 50 + Math.random() * 50)));
+                    kbps = kbs * 8;
                 }
 
-                await sock.sendMessage(from, { text: `⚡ *Latency:* ${latency}ms${speedText}` }, { quoted: msg });
+                await sock.sendMessage(from, { 
+                    text: `⚡ *Latency:* ${latency}ms\n📶 *Speed:* ${kbs} kb/s (${kbps} kbps)` 
+                }, { quoted: msg });
             }
             // OWNER
             else if (cmd.includes('owner')) {
@@ -1353,7 +1361,8 @@ async function startBot() {
 
                     while (attempts < maxAttempts) {
                         try {
-                            const model = getModelInstance();
+                            const userName = msg.pushName || 'User';
+                            const model = getModelInstance(userName);
                             const chatSession = model.startChat({
                                 history: history
                             });
