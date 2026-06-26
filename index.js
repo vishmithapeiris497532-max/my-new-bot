@@ -285,6 +285,25 @@ function cacheMessage(msg) {
     }
 }
 
+// Persistent list of JIDs that received the first-contact auto menu
+const autoMenuFilePath = path.join(__dirname, 'auto_menu_sent.json');
+let autoMenuSentList = new Set();
+if (fs.existsSync(autoMenuFilePath)) {
+    try {
+        const data = JSON.parse(fs.readFileSync(autoMenuFilePath, 'utf-8'));
+        autoMenuSentList = new Set(data);
+    } catch (e) {
+        console.log('Error reading auto_menu_sent.json:', e.message);
+    }
+}
+function saveAutoMenuSentList() {
+    try {
+        fs.writeFileSync(autoMenuFilePath, JSON.stringify(Array.from(autoMenuSentList), null, 2));
+    } catch (e) {
+        console.log('Error writing auto_menu_sent.json:', e.message);
+    }
+}
+
 let sock = null;
 let isReconnecting = false;
 let reconnectAttempts = 0;
@@ -560,6 +579,135 @@ async function startBot() {
         }
     });
 
+    async function sendMenu(from, msg) {
+        // Get dynamic sender name (pushName)
+        const userName = msg.pushName || 'User';
+        
+        // Get dynamic date & time formatted for Sri Lanka
+        const dateObj = new Date();
+        const date = dateObj.toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
+        const time = dateObj.toLocaleTimeString('en-US', { hour12: false, timeZone: 'Asia/Colombo' });
+        
+        // Calculate latency
+        const msgTimestamp = msg.messageTimestamp * 1000 || Date.now();
+        const latency = Math.max(0, Date.now() - msgTimestamp);
+        
+        // Calculate uptime
+        const uptimeMs = Date.now() - startTime;
+        const uptimeSec = Math.floor(uptimeMs / 1000);
+        const uptimeMin = Math.floor(uptimeSec / 60);
+        const uptimeHours = Math.floor(uptimeMin / 60);
+        const uptimeDays = Math.floor(uptimeHours / 24);
+        
+        let uptimeStr = '';
+        if (uptimeDays > 0) uptimeStr += `${uptimeDays}d `;
+        if (uptimeHours > 0) uptimeStr += `${uptimeHours % 24}h `;
+        if (uptimeMin > 0) uptimeStr += `${uptimeMin % 60}m `;
+        uptimeStr += `${uptimeSec % 60}s`;
+
+        const menuText = `╭───────────────────╮
+│ 🌸 *Hello ${userName}...!* 🌸
+│ 🌷 *Welcome to MV BOT Menu* ✨
+╰───────────────────╯
+
+📅 *Date:* ${date}
+⌚ *Time:* ${time}
+━━━━━━━━━━━━━━━━━━
+
+╭───〔 SYSTEM STATS 〕───*
+│ 👑 *Owner* : MV PRODUCTION
+│ ⚙️ *Mode* : PUBLIC
+│ ⏱️ *Uptime* : ${uptimeStr}
+│ 🚀 *Latency* : ${latency}ms
+│ 🤖 *Version* : 1.3
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 💬 GENERAL 〕───*
+│ ➣ Hi / Hello / Hey
+│ ➣ Kohomada (කොහොමද)
+│ ➣ Mama Hodin (මම හොඳින්)
+│ ➣ Love you / ආදරෙයි
+│ ➣ Good morning / GM
+│ ➣ Good night / GN
+│ ➣ Thank you / ස්තුතියි
+│ ➣ Bye / ගිහින් එන්නම්
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🎭 FUN 〕───*
+│ ➣ Joke (පට්ට කතා)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🛠️ UTILITY 〕───*
+│ ➣ Ping (වේගය පරීක්ෂා කරන්න)
+│ ➣ Menu (ප්‍රධාන ලැයිස්තුව)
+│ ➣ Owner (හිමිකරු)
+│ ➣ Alive (තවමත් ක්‍රියාකාරීද?)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🧠 GEMINI AI 〕───*
+│ ➣ ai <ප්‍රශ්නය> (Gemini AIගෙන් අසන්න)
+│ ➣ autoai on (Auto AI සක්‍රීය කරන්න)
+│ ➣ autoai off (Auto AI අක්‍රීය කරන්න)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🎵 YOUTUBE 〕───*
+│ ➣ Song <නම> (සින්දු බාගන්න)
+│ ➣ Video <නම> (වීඩියෝ බාගන්න)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 📥 DOWNLOADS 〕───*
+│ ➣ Auto Downloader for:
+│   - Facebook Video
+│   - TikTok Video
+│   - Instagram Reel
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 🔍 SEARCH 〕───*
+│ ➣ ig <username> (Instagram Profile)
+╰━━━━━━━━━━━━━━━━━━*
+
+╭───〔 👥 GROUP FEATURES 〕───*
+│ ➣ Auto Welcome 👋
+╰━━━━━━━━━━━━━━━━━━*
+
+━━━━━━━━━━━━━━━━━━
+👑 Owner : MV PRODUCTION
+📱 WhatsApp : +94 784291630
+🚀 Version : 1.3
+🟢 Status : Online
+━━━━━━━━━━━━━━━━━━
+
+🔥 Fast Replies
+❤️ Status React
+🎵 YouTube Search
+👋 Group Welcome
+🧠 Smart Gemini AI Chatbot
+
+▄︻デ══━一💥`;
+
+        // Check if a logo image exists locally or via environment variables
+        const localLogoJpg = path.join(__dirname, 'logo.jpg');
+        const localLogoPng = path.join(__dirname, 'logo.png');
+        const localLogoJpeg = path.join(__dirname, 'logo.jpeg');
+        let logoSource = null;
+
+        if (fs.existsSync(localLogoJpg)) {
+            logoSource = { url: localLogoJpg };
+        } else if (fs.existsSync(localLogoPng)) {
+            logoSource = { url: localLogoPng };
+        } else if (fs.existsSync(localLogoJpeg)) {
+            logoSource = { url: localLogoJpeg };
+        } else if (process.env.MENU_LOGO_URL) {
+            logoSource = { url: process.env.MENU_LOGO_URL };
+        }
+
+        if (logoSource) {
+            await sock.sendMessage(from, { image: logoSource, caption: menuText }, { quoted: msg });
+        } else {
+            await sock.sendMessage(from, { text: menuText }, { quoted: msg });
+        }
+    }
+
     // GROUP PARTICIPANTS UPDATES
 
     sock.ev.on('group-participants.update', async (update) => {
@@ -666,6 +814,20 @@ async function startBot() {
            
             const from = msg.key.remoteJid;
             const isGroup = from.endsWith('@g.us');
+
+            // Send First Contact Auto-Menu to direct messages (DMs) only (one time per user ever)
+            if (!isGroup) {
+                if (!autoMenuSentList.has(from)) {
+                    autoMenuSentList.add(from);
+                    saveAutoMenuSentList();
+                    console.log(`🚀 Sending First Contact Auto-Menu to: ${from.split('@')[0]}`);
+                    try {
+                        await sendMenu(from, msg);
+                    } catch (e) {
+                        console.log('Error sending first-contact auto menu:', e.message);
+                    }
+                }
+            }
 
             const text =
                 msg.message.conversation ||
@@ -992,133 +1154,7 @@ async function startBot() {
             // MENU
             else if (cmd === 'menu') {
                 await sock.sendMessage(from, { react: { text: '📋', key: msg.key } });
-                
-                // Get dynamic sender name (pushName)
-                const userName = msg.pushName || 'User';
-                
-                // Get dynamic date & time formatted for Sri Lanka
-                const dateObj = new Date();
-                const date = dateObj.toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
-                const time = dateObj.toLocaleTimeString('en-US', { hour12: false, timeZone: 'Asia/Colombo' });
-                
-                // Calculate latency
-                const msgTimestamp = msg.messageTimestamp * 1000 || Date.now();
-                const latency = Math.max(0, Date.now() - msgTimestamp);
-                
-                // Calculate uptime
-                const uptimeMs = Date.now() - startTime;
-                const uptimeSec = Math.floor(uptimeMs / 1000);
-                const uptimeMin = Math.floor(uptimeSec / 60);
-                const uptimeHours = Math.floor(uptimeMin / 60);
-                const uptimeDays = Math.floor(uptimeHours / 24);
-                
-                let uptimeStr = '';
-                if (uptimeDays > 0) uptimeStr += `${uptimeDays}d `;
-                if (uptimeHours > 0) uptimeStr += `${uptimeHours % 24}h `;
-                if (uptimeMin > 0) uptimeStr += `${uptimeMin % 60}m `;
-                uptimeStr += `${uptimeSec % 60}s`;
-
-                const menuText = `╭───────────────────╮
-│ 🌸 *Hello ${userName}...!* 🌸
-│ 🌷 *Welcome to MV BOT Menu* ✨
-╰───────────────────╯
-
-📅 *Date:* ${date}
-⌚ *Time:* ${time}
-━━━━━━━━━━━━━━━━━━
-
-╭───〔 SYSTEM STATS 〕───*
-│ 👑 *Owner* : MV PRODUCTION
-│ ⚙️ *Mode* : PUBLIC
-│ ⏱️ *Uptime* : ${uptimeStr}
-│ 🚀 *Latency* : ${latency}ms
-│ 🤖 *Version* : 1.3
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 💬 GENERAL 〕───*
-│ ➣ Hi / Hello / Hey
-│ ➣ Kohomada (කොහොමද)
-│ ➣ Mama Hodin (මම හොඳින්)
-│ ➣ Love you / ආදරෙයි
-│ ➣ Good morning / GM
-│ ➣ Good night / GN
-│ ➣ Thank you / ස්තුතියි
-│ ➣ Bye / ගිහින් එන්නම්
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 🎭 FUN 〕───*
-│ ➣ Joke (පට්ට කතා)
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 🛠️ UTILITY 〕───*
-│ ➣ Ping (වේගය පරීක්ෂා කරන්න)
-│ ➣ Menu (ප්‍රධාන ලැයිස්තුව)
-│ ➣ Owner (හිමිකරු)
-│ ➣ Alive (තවමත් ක්‍රියාකාරීද?)
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 🧠 GEMINI AI 〕───*
-│ ➣ ai <ප්‍රශ්නය> (Gemini AIගෙන් අසන්න)
-│ ➣ autoai on (Auto AI සක්‍රීය කරන්න)
-│ ➣ autoai off (Auto AI අක්‍රීය කරන්න)
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 🎵 YOUTUBE 〕───*
-│ ➣ Song <නම> (සින්දු බාගන්න)
-│ ➣ Video <නම> (වීඩියෝ බාගන්න)
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 📥 DOWNLOADS 〕───*
-│ ➣ Auto Downloader for:
-│   - Facebook Video
-│   - TikTok Video
-│   - Instagram Reel
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 🔍 SEARCH 〕───*
-│ ➣ ig <username> (Instagram Profile)
-╰━━━━━━━━━━━━━━━━━━*
-
-╭───〔 👥 GROUP FEATURES 〕───*
-│ ➣ Auto Welcome 👋
-╰━━━━━━━━━━━━━━━━━━*
-
-━━━━━━━━━━━━━━━━━━
-👑 Owner : MV PRODUCTION
-📱 WhatsApp : +94 784291630
-🚀 Version : 1.3
-🟢 Status : Online
-━━━━━━━━━━━━━━━━━━
-
-🔥 Fast Replies
-❤️ Status React
-🎵 YouTube Search
-👋 Group Welcome
-🧠 Smart Gemini AI Chatbot
-
-▄︻デ══━一💥`;
-
-                // Check if a logo image exists locally or via environment variables
-                const localLogoJpg = path.join(__dirname, 'logo.jpg');
-                const localLogoPng = path.join(__dirname, 'logo.png');
-                const localLogoJpeg = path.join(__dirname, 'logo.jpeg');
-                let logoSource = null;
-
-                if (fs.existsSync(localLogoJpg)) {
-                    logoSource = { url: localLogoJpg };
-                } else if (fs.existsSync(localLogoPng)) {
-                    logoSource = { url: localLogoPng };
-                } else if (fs.existsSync(localLogoJpeg)) {
-                    logoSource = { url: localLogoJpeg };
-                } else if (process.env.MENU_LOGO_URL) {
-                    logoSource = { url: process.env.MENU_LOGO_URL };
-                }
-
-                if (logoSource) {
-                    await sock.sendMessage(from, { image: logoSource, caption: menuText }, { quoted: msg });
-                } else {
-                    await sock.sendMessage(from, { text: menuText }, { quoted: msg });
-                }
+                await sendMenu(from, msg);
             }
             // INSTAGRAM PROFILE SEARCH
             else if (cmd.startsWith('ig ') || cmd === 'ig') {
