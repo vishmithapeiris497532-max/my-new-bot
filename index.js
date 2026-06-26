@@ -224,7 +224,7 @@ function getModelInstance() {
     return genAI.getGenerativeModel({
         model: "gemini-2.5-flash",
         systemInstruction: `You are MV BOT, a friendly, smart, and helpful WhatsApp AI bot. 
-Do not mention any creator name, developer name, or owner name like Vishmitha under any circumstances. If anyone asks who created you or who is your owner, simply state in Sinhala that you are an AI bot.
+Only mention the creator's name (Vishmitha) if someone explicitly asks who created you or who is your owner. Otherwise, do not mention the developer or owner name like Vishmitha anywhere in your responses under any circumstances.
 Your goal is to reply natural and conversational responses.
 Since your audience is from Sri Lanka, reply in Sinhala or a friendly mix of Sinhala and English (Singlish) where appropriate. 
 Keep your responses neat, well-structured, relatively short (suitable for quick WhatsApp reading), and use emojis nicely.`
@@ -916,7 +916,7 @@ async function startBot() {
             else if (cmd.includes('owner')) {
                 await sock.sendMessage(from, { react: { text: '👑', key: msg.key } });
                 await sock.sendMessage(from, {
-                    text: `👑 *BOT OWNER* : MV PRODUCTION\n\n📞 *WhatsApp* : +94 784291630`
+                    text: `👑 *BOT OWNER* : Vishmitha\n\n📞 *WhatsApp* : +94 784291630`
                 }, { quoted: msg });
             } 
             // ALIVE
