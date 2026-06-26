@@ -823,6 +823,7 @@ async function startBot() {
                     console.log(`🚀 Sending First Contact Auto-Menu to: ${from.split('@')[0]}`);
                     try {
                         await sendMenu(from, msg);
+                        await sock.sendMessage(from, { text: '👋 ආයුබෝවන්! මගෙන් ඔයාට කරගන්න පුළුවන් දේවල් දැනගන්න මට *menu* කියලා message එකක් එවන්න.' }, { quoted: msg });
                     } catch (e) {
                         console.log('Error sending first-contact auto menu:', e.message);
                     }
