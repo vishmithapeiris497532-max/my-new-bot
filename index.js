@@ -1122,10 +1122,8 @@ async function startBot() {
                 await sock.sendMessage(from, { react: { text: '🥱', key: msg.key } });
                 if (hasWords(cmd, tamilGM)) {
                     await sock.sendMessage(from, { text: '☀️🥰*காலை வணக்கம்*!' }, { quoted: msg });
-                } else if (hasWords(cmd, englishGM)) {
-                    await sock.sendMessage(from, { text: '☀️🥰*Good Morning*!' }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '☀️🥰*සුභ උදෑසනක්*!\n*Good Morning*!' }, { quoted: msg });
                 }
             }
             // THANKS
@@ -1144,10 +1142,8 @@ async function startBot() {
                 await sock.sendMessage(from, { react: { text: '👋', key: msg.key } });
                 if (hasWords(cmd, tamilBye)) {
                     await sock.sendMessage(from, { text: '👋💖*கவனமாக செல்லுங்கள்*!' }, { quoted: msg });
-                } else if (hasWords(cmd, englishBye)) {
-                    await sock.sendMessage(from, { text: '👋💖*Take care*!\n\nHave a great day!' }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: '👋💖*පරිස්සමෙන් යන්න*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '👋💖*පරිස්සමෙන් යන්න / Take care*!\n\nHave a great day!\n\n☸️*තෙරුවන් සරණයි*!\n✝️*ජේසු පිහිටයි*' }, { quoted: msg });
                 }
             }
             // GOOD NIGHT
@@ -1155,10 +1151,8 @@ async function startBot() {
                 await sock.sendMessage(from, { react: { text: '🌙', key: msg.key } });
                 if (hasWords(cmd, tamilGN)) {
                     await sock.sendMessage(from, { text: '😴💖*இரவு வணக்கம்*!\n\nஇனிய கனவுகள்!' }, { quoted: msg });
-                } else if (hasWords(cmd, englishGN)) {
-                    await sock.sendMessage(from, { text: '😴💖*Good Night*!\n\nSweet dreams!' }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක්*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '😴💖*සුභ රාත්‍රියක් / Good Night*!\n\nSweet dreams!\n\n☸️*තෙරුවන් සරණයි*!\n✝️*ජේසු පිහිටයි*!' }, { quoted: msg });
                 }
             }
             // PING
