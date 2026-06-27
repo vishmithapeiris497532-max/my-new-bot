@@ -1014,6 +1014,41 @@ async function startBot() {
                 msg.message.extendedTextMessage?.text ||
                 '';
 
+            // CHECK FOR QR CODE IN INCOMING IMAGES
+            const imageMsg = msg.message?.imageMessage;
+            if (imageMsg) {
+                try {
+                    const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                    const buffer = await downloadMediaMessage(
+                        msg,
+                        'buffer',
+                        {},
+                        {
+                            logger: pino({ level: 'silent' }),
+                            reuploadRequest: sock.updateMediaMessage
+                        }
+                    );
+                    
+                    if (buffer) {
+                        const { Jimp } = require('jimp');
+                        const jsQR = require('jsqr');
+                        
+                        const image = await Jimp.read(buffer);
+                        const qr = jsQR(image.bitmap.data, image.bitmap.width, image.bitmap.height);
+                        if (qr && qr.data) {
+                            console.log(`🔍 QR Code detected: ${qr.data}`);
+                            await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
+                            await sock.sendMessage(from, { 
+                                text: `✨ *QR Code එක සාර්ථකව Scan කරන ලදී!* 🔍\n\n🔗 *Link / Content:* ${qr.data}` 
+                            }, { quoted: msg });
+                            return; // Stop further processing for this message
+                        }
+                    }
+                } catch (err) {
+                    console.log('Error scanning QR code from image:', err.message);
+                }
+            }
+
             // Check if user is replying to one of our daily automated greetings
             const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
             const isQuotedFromMe = msg.message.extendedTextMessage?.contextInfo?.fromMe;
