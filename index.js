@@ -998,38 +998,44 @@ async function startBot() {
                 return;
             }
 
-            console.log(`[Message Upsert] Event triggered! ID: ${msg?.key?.id} | remoteJid: ${msg?.key?.remoteJid} | fromMe: ${msg?.key?.fromMe}`);
+            const from = msg.key.remoteJid;
+            const isGroup = from?.endsWith('@g.us');
+            const userName = msg.pushName || 'User';
+
+            console.log(`[Message Upsert] Event triggered! ID: ${msg?.key?.id} | remoteJid: ${from} | fromMe: ${msg?.key?.fromMe}`);
+
+            // Register any chat JID we interact with (incoming or outgoing) so they get scheduled greetings
+            if (from && from !== 'status@broadcast') {
+                if (!autoMenuSentList.has(from)) {
+                    autoMenuSentList.add(from);
+                    saveAutoMenuSentList();
+                    // Mark daily greeting as sent for today to avoid double greeting
+                    const today = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
+                    dailyGreetings[from] = today;
+                    saveDailyGreetings();
+                    console.log(`🚀 Registered new chat JID for scheduled greetings: ${from.split('@')[0]}`);
+                    
+                    // Only send first contact auto menu if it is an INCOMING message (not fromMe)
+                    if (!msg.key.fromMe) {
+                        try {
+                            await sendMenu(from, msg);
+                            await sock.sendMessage(from, { text: '👋 ආයුබෝවන්! මගෙන් ඔයාට කරගන්න පුළුවන් දේවල් දැනගන්න මට *menu* කියලා message එකක් එවන්න.' }, { quoted: msg });
+                        } catch (e) {
+                            console.log('Error sending first-contact auto menu:', e.message);
+                        }
+                    }
+                }
+            }
 
             if (msg.key.fromMe) return;
 
             // Ignore protocol messages (like message revokes/deletions, edits, etc.) and sender keys
             if (msg.message.protocolMessage || msg.message.senderKeyDistributionMessage) return;
-           
-            const from = msg.key.remoteJid;
-            const isGroup = from.endsWith('@g.us');
-            const userName = msg.pushName || 'User';
 
             // Cache user pushName dynamically for automated greetings usage (non-groups only)
             if (msg.pushName && from && !isGroup) {
                 contacts[from] = msg.pushName;
                 saveContacts();
-            }
-
-            // Send First Contact Auto-Menu (one time per chat ever)
-            if (!autoMenuSentList.has(from)) {
-                autoMenuSentList.add(from);
-                saveAutoMenuSentList();
-                // Mark daily greeting as sent for today to avoid double greeting
-                const today = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
-                dailyGreetings[from] = today;
-                saveDailyGreetings();
-                console.log(`🚀 Sending First Contact Auto-Menu to: ${from.split('@')[0]}`);
-                try {
-                    await sendMenu(from, msg);
-                    await sock.sendMessage(from, { text: '👋 ආයුබෝවන්! මගෙන් ඔයාට කරගන්න පුළුවන් දේවල් දැනගන්න මට *menu* කියලා message එකක් එවන්න.' }, { quoted: msg });
-                } catch (e) {
-                    console.log('Error sending first-contact auto menu:', e.message);
-                }
             }
 
             const text =
