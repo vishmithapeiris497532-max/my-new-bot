@@ -901,6 +901,54 @@ async function startBot() {
         }
     }
 
+    // CHATS SYNC EVENTS (Automatically register all active chats from WhatsApp chat list)
+    sock.ev.on('messaging-history.set', ({ chats }) => {
+        try {
+            if (chats) {
+                console.log(`📥 [Sync] Received messaging history sync: ${chats.length} chats`);
+                for (const chat of chats) {
+                    if (chat.id && chat.id !== 'status@broadcast') {
+                        autoMenuSentList.add(chat.id);
+                    }
+                }
+                saveAutoMenuSentList();
+            }
+        } catch (e) {
+            console.log('Error syncing messaging history:', e.message);
+        }
+    });
+
+    sock.ev.on('chats.set', ({ chats }) => {
+        try {
+            if (chats) {
+                console.log(`📥 [Sync] Received chats sync: ${chats.length} chats`);
+                for (const chat of chats) {
+                    if (chat.id && chat.id !== 'status@broadcast') {
+                        autoMenuSentList.add(chat.id);
+                    }
+                }
+                saveAutoMenuSentList();
+            }
+        } catch (e) {
+            console.log('Error syncing chats:', e.message);
+        }
+    });
+
+    sock.ev.on('chats.upsert', (chats) => {
+        try {
+            if (chats) {
+                for (const chat of chats) {
+                    if (chat.id && chat.id !== 'status@broadcast') {
+                        autoMenuSentList.add(chat.id);
+                    }
+                }
+                saveAutoMenuSentList();
+            }
+        } catch (e) {
+            console.log('Error upserting chats:', e.message);
+        }
+    });
+
     // GROUP PARTICIPANTS UPDATES
 
     sock.ev.on('group-participants.update', async (update) => {
