@@ -901,17 +901,37 @@ async function startBot() {
         }
     }
 
-    // CHATS SYNC EVENTS (Automatically register all active chats from WhatsApp chat list)
-    sock.ev.on('messaging-history.set', ({ chats }) => {
+    // CHATS & CONTACTS SYNC EVENTS (Automatically register active chats and contact display names)
+    sock.ev.on('messaging-history.set', ({ chats, contacts: syncedContacts }) => {
         try {
+            let changed = false;
             if (chats) {
                 console.log(`📥 [Sync] Received messaging history sync: ${chats.length} chats`);
                 for (const chat of chats) {
                     if (chat.id && chat.id !== 'status@broadcast') {
                         autoMenuSentList.add(chat.id);
+                        if (chat.name && !chat.id.endsWith('@g.us')) {
+                            contacts[chat.id] = chat.name;
+                            changed = true;
+                        }
                     }
                 }
                 saveAutoMenuSentList();
+            }
+            if (syncedContacts) {
+                console.log(`📥 [Sync] Synced ${syncedContacts.length} contacts`);
+                for (const contact of syncedContacts) {
+                    if (contact.id && !contact.id.endsWith('@g.us')) {
+                        const nameToUse = contact.name || contact.notify || contact.verifiedName;
+                        if (nameToUse) {
+                            contacts[contact.id] = nameToUse;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            if (changed) {
+                saveContacts();
             }
         } catch (e) {
             console.log('Error syncing messaging history:', e.message);
@@ -920,14 +940,22 @@ async function startBot() {
 
     sock.ev.on('chats.set', ({ chats }) => {
         try {
+            let changed = false;
             if (chats) {
                 console.log(`📥 [Sync] Received chats sync: ${chats.length} chats`);
                 for (const chat of chats) {
                     if (chat.id && chat.id !== 'status@broadcast') {
                         autoMenuSentList.add(chat.id);
+                        if (chat.name && !chat.id.endsWith('@g.us')) {
+                            contacts[chat.id] = chat.name;
+                            changed = true;
+                        }
                     }
                 }
                 saveAutoMenuSentList();
+            }
+            if (changed) {
+                saveContacts();
             }
         } catch (e) {
             console.log('Error syncing chats:', e.message);
@@ -936,16 +964,68 @@ async function startBot() {
 
     sock.ev.on('chats.upsert', (chats) => {
         try {
+            let changed = false;
             if (chats) {
                 for (const chat of chats) {
                     if (chat.id && chat.id !== 'status@broadcast') {
                         autoMenuSentList.add(chat.id);
+                        if (chat.name && !chat.id.endsWith('@g.us')) {
+                            contacts[chat.id] = chat.name;
+                            changed = true;
+                        }
                     }
                 }
                 saveAutoMenuSentList();
             }
+            if (changed) {
+                saveContacts();
+            }
         } catch (e) {
             console.log('Error upserting chats:', e.message);
+        }
+    });
+
+    sock.ev.on('contacts.set', (syncedContacts) => {
+        try {
+            let changed = false;
+            if (syncedContacts) {
+                for (const contact of syncedContacts) {
+                    if (contact.id && !contact.id.endsWith('@g.us')) {
+                        const nameToUse = contact.name || contact.notify || contact.verifiedName;
+                        if (nameToUse) {
+                            contacts[contact.id] = nameToUse;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            if (changed) {
+                saveContacts();
+            }
+        } catch (e) {
+            console.log('Error syncing contacts:', e.message);
+        }
+    });
+
+    sock.ev.on('contacts.upsert', (syncedContacts) => {
+        try {
+            let changed = false;
+            if (syncedContacts) {
+                for (const contact of syncedContacts) {
+                    if (contact.id && !contact.id.endsWith('@g.us')) {
+                        const nameToUse = contact.name || contact.notify || contact.verifiedName;
+                        if (nameToUse) {
+                            contacts[contact.id] = nameToUse;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            if (changed) {
+                saveContacts();
+            }
+        } catch (e) {
+            console.log('Error upserting contacts:', e.message);
         }
     });
 
