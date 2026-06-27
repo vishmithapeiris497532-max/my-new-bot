@@ -603,25 +603,26 @@ async function startBot() {
             }
 
             // Start greetings scheduler
-            greetingsInterval = setInterval(async () => {
+            const checkGreetings = async () => {
                 try {
                     const { hour, minute, dateStr } = getColomboTime();
+                    const totalMinutes = hour * 60 + minute;
                     
-                    // Determine if the current time matches one of our slots
+                    // Determine if the current time falls within one of our active slots
                     let slot = null;
-                    if (hour === 0 && minute === 0) {
-                        slot = 'morning';
-                    } else if (hour === 12 && minute === 0) {
-                        slot = 'afternoon';
-                    } else if (hour === 16 && minute === 0) {
-                        slot = 'evening';
-                    } else if (hour === 21 && minute === 30) {
-                        slot = 'night';
+                    if (totalMinutes >= 0 && totalMinutes < 300) {
+                        slot = 'morning'; // 12:00 AM - 5:00 AM
+                    } else if (totalMinutes >= 720 && totalMinutes < 900) {
+                        slot = 'afternoon'; // 12:00 PM - 3:00 PM
+                    } else if (totalMinutes >= 960 && totalMinutes < 1140) {
+                        slot = 'evening'; // 4:00 PM - 7:00 PM
+                    } else if (totalMinutes >= 1290 && totalMinutes <= 1439) {
+                        slot = 'night'; // 9:30 PM - 11:59 PM
                     }
 
                     if (!slot) return;
 
-                    console.log(`⏰ Scheduled Greeting Triggered! Slot: ${slot} | Date: ${dateStr}`);
+                    console.log(`⏰ Checking Scheduled Greetings. Slot: ${slot} | Time: ${hour}:${minute} | Date: ${dateStr}`);
 
                     const jids = Array.from(autoMenuSentList);
                     for (const jid of jids) {
@@ -665,9 +666,13 @@ async function startBot() {
                         }
                     }
                 } catch (e) {
-                    console.log('Error in greetingsInterval scheduler:', e.message);
+                    console.log('Error in greetings scheduler check:', e.message);
                 }
-            }, 60000);
+            };
+
+            // Run check immediately upon connection, and then every 60s
+            checkGreetings();
+            greetingsInterval = setInterval(checkGreetings, 60000);
 
             setTimeout(() => {
                 try {
