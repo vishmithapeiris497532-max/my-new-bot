@@ -610,8 +610,8 @@ async function startBot() {
                     
                     // Determine if the current time falls within one of our active slots
                     let slot = null;
-                    if (totalMinutes >= 0 && totalMinutes < 300) {
-                        slot = 'morning'; // 12:00 AM - 5:00 AM
+                    if (totalMinutes >= 0 && totalMinutes < 720) {
+                        slot = 'morning'; // 12:00 AM - 11:59 AM
                     } else if (totalMinutes >= 720 && totalMinutes < 900) {
                         slot = 'afternoon'; // 12:00 PM - 3:00 PM
                     } else if (totalMinutes >= 960 && totalMinutes < 1140) {
