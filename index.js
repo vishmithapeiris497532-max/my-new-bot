@@ -1190,8 +1190,30 @@ async function startBot() {
                         const { Jimp } = require('jimp');
                         const jsQR = require('jsqr');
                         
-                        const image = await Jimp.read(buffer);
-                        const qr = jsQR(image.bitmap.data, image.bitmap.width, image.bitmap.height);
+                        let image = await Jimp.read(buffer);
+                        
+                        // Pass 1: Resize to standard width 800px if original is larger
+                        // (Prevents jsQR failure/slowness on high-res camera photos)
+                        if (image.bitmap.width > 800) {
+                            const w = 800;
+                            const h = Math.round(image.bitmap.height * w / image.bitmap.width);
+                            image = image.resize({ w, h });
+                        }
+                        
+                        let qr = jsQR(image.bitmap.data, image.bitmap.width, image.bitmap.height);
+                        
+                        // Pass 2: Try with greyscale conversion if direct scan fails
+                        if (!qr) {
+                            const processed = image.clone().greyscale();
+                            qr = jsQR(processed.bitmap.data, processed.bitmap.width, processed.bitmap.height);
+                        }
+                        
+                        // Pass 3: Try with contrast enhancement if greyscale scan fails
+                        if (!qr) {
+                            const processed = image.clone().greyscale().contrast(0.3);
+                            qr = jsQR(processed.bitmap.data, processed.bitmap.width, processed.bitmap.height);
+                        }
+
                         if (qr && qr.data) {
                             console.log(`🔍 QR Code detected: ${qr.data}`);
                             await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
