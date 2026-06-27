@@ -810,6 +810,7 @@ async function startBot() {
 │ ➣ Owner (හිමිකරු)
 │ ➣ Alive (තවමත් ක්‍රියාකාරීද?)
 │ ➣ calc <ගණිත ප්‍රකාශනය> (උදා: 1+1)
+│ ➣ Auto QR Scanner (පින්තූරයක QR එකක් Scan කිරීම)
 ╰━━━━━━━━━━━━━━━━━━*
 
 ╭───〔 🧠 GEMINI AI 〕───*
@@ -849,6 +850,7 @@ async function startBot() {
 ❤️ Status React & Reply React
 ⏰ Scheduled Greetings (ස්වයංක්‍රීය සුභපැතුම්)
 🧮 Auto Calculator (උදා: 1+1 වැනි සෘජු ගණනය කිරීම්)
+🔍 Auto QR Scanner (පින්තූර QR Scan කිරීම)
 🎵 YouTube Search
 👋 Group Welcome
 🧠 Smart Gemini AI Chatbot
