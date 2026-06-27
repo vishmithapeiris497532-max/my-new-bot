@@ -322,6 +322,76 @@ function saveDailyGreetings() {
     }
 }
 
+// Persistent map of JIDs to pushNames
+const contactsFilePath = path.join(__dirname, 'contacts.json');
+let contacts = {};
+if (fs.existsSync(contactsFilePath)) {
+    try {
+        contacts = JSON.parse(fs.readFileSync(contactsFilePath, 'utf-8'));
+    } catch (e) {
+        console.log('Error reading contacts.json:', e.message);
+    }
+}
+function saveContacts() {
+    try {
+        fs.writeFileSync(contactsFilePath, JSON.stringify(contacts, null, 2));
+    } catch (e) {
+        console.log('Error writing contacts.json:', e.message);
+    }
+}
+
+function getColomboTime() {
+    const d = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Colombo',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+    });
+    const parts = formatter.formatToParts(d);
+    let hour = 0, minute = 0;
+    for (const part of parts) {
+        if (part.type === 'hour') hour = parseInt(part.value, 10);
+        if (part.type === 'minute') minute = parseInt(part.value, 10);
+    }
+    if (hour === 24) hour = 0;
+    const dateStr = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' }); // dd/mm/yyyy
+    return { hour, minute, dateStr };
+}
+
+function isAutoMathExpression(str) {
+    const trimmed = str.trim();
+    
+    // Must only contain allowed mathematical characters
+    if (!/^[0-9+\-*/().\s%**^]+$/.test(trimmed)) {
+        return false;
+    }
+
+    // Must contain at least one operator
+    if (!/[+\-*/%^]/.test(trimmed)) {
+        return false;
+    }
+
+    // Exclude dates (e.g., 2026/06/27, 27-06-2026)
+    if (/^\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}$/.test(trimmed)) {
+        return false;
+    }
+
+    // Exclude phone numbers starting with +
+    if (/^\+\d+[\d\s\-]*$/.test(trimmed)) {
+        return false;
+    }
+
+    // Exclude standard Sri Lankan and international phone numbers (9 to 12 digits)
+    const cleanStr = trimmed.replace(/[\s\-]/g, '');
+    if (/^\d{9,12}$/.test(cleanStr)) {
+        return false;
+    }
+
+    return true;
+}
+
+let greetingsInterval = null;
 let sock = null;
 let isReconnecting = false;
 let reconnectAttempts = 0;
@@ -525,6 +595,80 @@ async function startBot() {
         if (connection === 'open') {
             console.log('✅ Bot Connected Successfully!');
             reconnectAttempts = 0; // Reset attempts on successful connection
+            
+            // Clear duplicate interval if any
+            if (greetingsInterval) {
+                clearInterval(greetingsInterval);
+                greetingsInterval = null;
+            }
+
+            // Start greetings scheduler
+            greetingsInterval = setInterval(async () => {
+                try {
+                    const { hour, minute, dateStr } = getColomboTime();
+                    
+                    // Determine if the current time matches one of our slots
+                    let slot = null;
+                    if (hour === 0 && minute === 0) {
+                        slot = 'morning';
+                    } else if (hour === 12 && minute === 0) {
+                        slot = 'afternoon';
+                    } else if (hour === 16 && minute === 0) {
+                        slot = 'evening';
+                    } else if (hour === 21 && minute === 30) {
+                        slot = 'night';
+                    }
+
+                    if (!slot) return;
+
+                    console.log(`⏰ Scheduled Greeting Triggered! Slot: ${slot} | Date: ${dateStr}`);
+
+                    const jids = Array.from(autoMenuSentList);
+                    for (const jid of jids) {
+                        const greetingKey = `${dateStr}-${slot}`;
+                        if (dailyGreetings[jid] === greetingKey) {
+                            continue;
+                        }
+
+                        const isGroup = jid.endsWith('@g.us');
+                        const name = contacts[jid] || 'User';
+
+                        let firstMsg = '';
+                        let secondMsg = '';
+
+                        if (slot === 'morning') {
+                            firstMsg = isGroup ? `☀️🥰*සුභ උදෑසනක් හැමෝටම*!` : `☀️🥰*සුභ උදෑසනක් ${name}*!`;
+                            secondMsg = isGroup ? `☀️🥰*Good Morning Everyone*!` : `☀️🥰*Good Morning ${name}*!`;
+                        } else if (slot === 'afternoon') {
+                            firstMsg = isGroup ? `☀️🥰*සුභ පස්වරුවක් හැමෝටම*!` : `☀️🥰*සුභ පස්වරුවක් ${name}*!`;
+                            secondMsg = isGroup ? `☀️🥰*Good Afternoon Everyone*!` : `☀️🥰*Good Afternoon ${name}*!`;
+                        } else if (slot === 'evening') {
+                            firstMsg = isGroup ? `☀️🥰*සුභ සැන්දෑවක් හැමෝටම*!` : `☀️🥰*සුභ සැන්දෑවක් ${name}*!`;
+                            secondMsg = isGroup ? `☀️🥰*Good Evening Everyone*!` : `☀️🥰*Good Evening ${name}*!`;
+                        } else if (slot === 'night') {
+                            firstMsg = isGroup ? `😴💖*සුභ රාත්‍රියක් හැමෝටම*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!` : `😴💖*සුභ රාත්‍රියක් ${name}*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!`;
+                            secondMsg = isGroup ? `😴💖*Good Night Everyone*!\n\nSweet dreams!` : `😴💖*Good Night ${name}*!\n\nSweet dreams!`;
+                        }
+
+                        try {
+                            await sock.sendMessage(jid, { text: firstMsg });
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                            await sock.sendMessage(jid, { text: secondMsg });
+                            
+                            dailyGreetings[jid] = greetingKey;
+                            saveDailyGreetings();
+                            
+                            console.log(`✅ Sent ${slot} greeting to ${jid.split('@')[0]}`);
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        } catch (err) {
+                            console.log(`Failed to send scheduled greeting to ${jid}:`, err.message);
+                        }
+                    }
+                } catch (e) {
+                    console.log('Error in greetingsInterval scheduler:', e.message);
+                }
+            }, 60000);
+
             setTimeout(() => {
                 try {
                     const credsPath = path.resolve(process.cwd(), 'baileys_auth', 'creds.json');
@@ -547,6 +691,11 @@ async function startBot() {
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode;
             console.log('Connection closed. Status code:', statusCode, 'Error:', lastDisconnect?.error);
+
+            if (greetingsInterval) {
+                clearInterval(greetingsInterval);
+                greetingsInterval = null;
+            }
 
             // Clean up the closed socket's event listeners immediately to prevent multiple close events triggering multiple startBot calls
             if (sock) {
@@ -834,6 +983,12 @@ async function startBot() {
             const isGroup = from.endsWith('@g.us');
             const userName = msg.pushName || 'User';
 
+            // Cache user pushName dynamically for automated greetings usage (non-groups only)
+            if (msg.pushName && from && !isGroup) {
+                contacts[from] = msg.pushName;
+                saveContacts();
+            }
+
             // Send First Contact Auto-Menu (one time per chat ever)
             if (!autoMenuSentList.has(from)) {
                 autoMenuSentList.add(from);
@@ -849,42 +1004,6 @@ async function startBot() {
                 } catch (e) {
                     console.log('Error sending first-contact auto menu:', e.message);
                 }
-            } else {
-                // Send Daily Greetings based on time of day (once per day per JID)
-                const today = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' });
-                if (dailyGreetings[from] !== today) {
-                    dailyGreetings[from] = today;
-                    saveDailyGreetings();
-                    
-                    const colomboTime = new Date().toLocaleTimeString('en-US', { hour12: false, timeZone: 'Asia/Colombo' });
-                    const [hourStr, minStr] = colomboTime.split(':');
-                    const hour = parseInt(hourStr, 10);
-                    const minute = parseInt(minStr, 10);
-                    const totalMinutes = hour * 60 + minute;
-                    
-                    console.log(`🌅 Sending daily welcome greeting to: ${from.split('@')[0]} (Time: ${colomboTime})`);
-                    try {
-                        if (totalMinutes >= 0 && totalMinutes < 720) {
-                            // 12:00 AM to 12:00 PM - Good Morning
-                            await sock.sendMessage(from, { text: `☀️🥰*සුභ උදෑසනක් ${userName}*!` }, { quoted: msg });
-                            await sock.sendMessage(from, { text: `☀️🥰*Good Morning ${userName}*!` }, { quoted: msg });
-                        } else if (totalMinutes >= 720 && totalMinutes < 960) {
-                            // 12:00 PM to 4:00 PM - Good Afternoon
-                            await sock.sendMessage(from, { text: `☀️🥰*සුභ පස්වරුවක් ${userName}*!` }, { quoted: msg });
-                            await sock.sendMessage(from, { text: `☀️🥰*Good Afternoon ${userName}*!` }, { quoted: msg });
-                        } else if (totalMinutes >= 960 && totalMinutes < 1290) {
-                            // 4:00 PM to 9:30 PM - Good Evening
-                            await sock.sendMessage(from, { text: `🌇🥰*සුභ සැන්දෑවක් ${userName}*!` }, { quoted: msg });
-                            await sock.sendMessage(from, { text: `🌇🥰*Good Evening ${userName}*!` }, { quoted: msg });
-                        } else {
-                            // 9:30 PM to 12:00 AM - Good Night
-                            await sock.sendMessage(from, { text: `😴💖*සුභ රාත්‍රියක් ${userName}*!\n\n☸️*තෙරුවන් සරණයි*!\n\n✝️*ජේසු පිහිටයි*!` }, { quoted: msg });
-                            await sock.sendMessage(from, { text: `😴💖*Good Night ${userName}*!\n\nSweet dreams!` }, { quoted: msg });
-                        }
-                    } catch (err) {
-                        console.log('Error sending daily welcome greeting:', err.message);
-                    }
-                }
             }
 
             const text =
@@ -892,8 +1011,58 @@ async function startBot() {
                 msg.message.extendedTextMessage?.text ||
                 '';
 
+            // Check if user is replying to one of our daily automated greetings
+            const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            const isQuotedFromMe = msg.message.extendedTextMessage?.contextInfo?.fromMe;
+            const quotedMsgId = msg.message.extendedTextMessage?.contextInfo?.stanzaId;
+            const quotedText = msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
+                               msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text ||
+                               msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage?.caption ||
+                               '';
+
+            const isReplyToGreeting = isReply && isQuotedFromMe && quotedMsgId && (
+                quotedText.includes('සුභ උදෑසනක්') ||
+                quotedText.includes('Good Morning') ||
+                quotedText.includes('සුභ පස්වරුවක්') ||
+                quotedText.includes('Good Afternoon') ||
+                quotedText.includes('සුභ සැන්දෑවක්') ||
+                quotedText.includes('Good Evening') ||
+                quotedText.includes('සුභ රාත්‍රියක්') ||
+                quotedText.includes('Good Night')
+            );
+
+            if (isReplyToGreeting) {
+                try {
+                    await sock.sendMessage(from, { react: { text: '❤️', key: msg.key } });
+                    await sock.sendMessage(from, { text: '🥰✨' }, { quoted: msg });
+                } catch (err) {
+                    console.log('Error responding to greeting reply:', err.message);
+                }
+                return;
+            }
+
             // Log incoming messages for debugging
             console.log(`✉️ Message received from: ${from.split('@')[0]} | Text: "${text}"`);
+
+            // CHECK FOR AUTO-CALCULATOR (PREFIXLESS)
+            if (isAutoMathExpression(text)) {
+                const expr = text.trim();
+                const sanitizedExpr = expr.replace(/\^/g, '**');
+                try {
+                    const result = new Function(`return (${sanitizedExpr})`)();
+                    if (result !== undefined && !isNaN(result) && isFinite(result)) {
+                        await sock.sendMessage(from, { react: { text: '🧮', key: msg.key } });
+                        const calcText = `╭───〔 🧮 CALCULATOR 〕───*
+│ 📝 *Expression:* ${expr}
+│ 📈 *Result:* ${result}
+╰━━━━━━━━━━━━━━━━━━*`;
+                        await sock.sendMessage(from, { text: calcText }, { quoted: msg });
+                        return;
+                    }
+                } catch (err) {
+                    console.log('Auto calculator parsing failed:', err.message);
+                }
+            }
 
             // CHECK FOR AUTO-DOWNLOAD OF FACEBOOK, TIKTOK, AND INSTAGRAM LINKS
             const socialMediaMatch = extractSocialUrl(text);
@@ -943,8 +1112,6 @@ async function startBot() {
 
             const cmd = text.trim().toLowerCase();
             // CHECK FOR VIDEO QUALITY CHOICE MENU REPLY
-            const isReply = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-            const quotedMsgId = msg.message.extendedTextMessage?.contextInfo?.stanzaId;
 
             if (isReply && quotedMsgId && pendingVideoDownloads[quotedMsgId]) {
                 const match = cmd.match(/[1234]|❶|❷|❸|❹|1️⃣|2️⃣|3️⃣|4️⃣/);
