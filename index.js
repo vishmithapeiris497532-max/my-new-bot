@@ -612,8 +612,8 @@ async function startBot() {
                     let slot = null;
                     if (totalMinutes >= 0 && totalMinutes < 720) {
                         slot = 'morning'; // 12:00 AM - 11:59 AM
-                    } else if (totalMinutes >= 720 && totalMinutes < 900) {
-                        slot = 'afternoon'; // 12:00 PM - 3:00 PM
+                    } else if (totalMinutes >= 720 && totalMinutes < 960) {
+                        slot = 'afternoon'; // 12:00 PM - 3:59 PM
                     } else if (totalMinutes >= 960 && totalMinutes < 1140) {
                         slot = 'evening'; // 4:00 PM - 7:00 PM
                     } else if (totalMinutes >= 1290 && totalMinutes <= 1439) {
