@@ -809,6 +809,7 @@ async function startBot() {
 │ ➣ Menu (ප්‍රධාන ලැයිස්තුව)
 │ ➣ Owner (හිමිකරු)
 │ ➣ Alive (තවමත් ක්‍රියාකාරීද?)
+│ ➣ calc <ගණිත ප්‍රකාශනය> (උදා: 1+1)
 ╰━━━━━━━━━━━━━━━━━━*
 
 ╭───〔 🧠 GEMINI AI 〕───*
@@ -845,7 +846,9 @@ async function startBot() {
 ━━━━━━━━━━━━━━━━━━
 
 🔥 Fast Replies
-❤️ Status React
+❤️ Status React & Reply React
+⏰ Scheduled Greetings (ස්වයංක්‍රීය සුභපැතුම්)
+🧮 Auto Calculator (උදා: 1+1 වැනි සෘජු ගණනය කිරීම්)
 🎵 YouTube Search
 👋 Group Welcome
 🧠 Smart Gemini AI Chatbot
