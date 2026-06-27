@@ -624,7 +624,23 @@ async function startBot() {
 
                     console.log(`⏰ Checking Scheduled Greetings. Slot: ${slot} | Time: ${hour}:${minute} | Date: ${dateStr}`);
 
-                    const jids = Array.from(autoMenuSentList);
+                    let jids = Array.from(autoMenuSentList);
+                    
+                    // Fetch all groups the bot is in dynamically and add them to the greetings list
+                    try {
+                        const groups = await sock.groupFetchAllParticipating();
+                        if (groups) {
+                            const groupJids = Object.keys(groups);
+                            for (const gjid of groupJids) {
+                                if (!jids.includes(gjid)) {
+                                    jids.push(gjid);
+                                }
+                            }
+                        }
+                    } catch (groupErr) {
+                        console.log("Error fetching participating groups for greetings:", groupErr.message);
+                    }
+
                     for (const jid of jids) {
                         const greetingKey = `${dateStr}-${slot}`;
                         if (dailyGreetings[jid] === greetingKey) {
